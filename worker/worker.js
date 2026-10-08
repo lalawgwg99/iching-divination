@@ -36,7 +36,13 @@ export default {
         ],
         max_tokens: 1200,
       });
-      let txt = (ai.response || "").trim();
+      let txt = "";
+      if (typeof ai.response === "string") txt = ai.response;
+      else if (ai.choices && ai.choices[0]) {
+        const c0 = ai.choices[0];
+        txt = (c0.message && c0.message.content) || c0.text || "";
+      }
+      txt = String(txt).trim();
       // 容錯：擷取第一個 {...}
       const m = txt.match(/\{[\s\S]*\}/);
       if (m) txt = m[0];

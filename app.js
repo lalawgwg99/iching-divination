@@ -28,13 +28,6 @@ let v = 0;
 for (let i = 0; i < 3; i++) v += Math.random() < 0.5? 3: 2;
 return v; // 6,7,8,9
 }
-function yaoInfo(v, i) {
-const yang = (v === 7 || v === 9);
-const moving = (v === 6 || v === 9);
-const stem = yang? "九": "六";
-const pos = ["初", "二", "三", "四", "五", "上"][i];
-return { yang, moving, label: (i === 0? "初": i === 5? "上": "") + (yang? "九": "六") + (i > 0 && i < 5? ["", "二", "三", "四", "五"][i]: ""), v};
-}
 function labelOf(yang, i) {
 const p = ["初", "二", "三", "四", "五", "上"][i];
 return p + (yang? "九": "六");
@@ -71,17 +64,18 @@ const q = $("q").value.trim();
 if (!q) { alert("請先寫下你想問的事"); $("q").focus(); return;}
 let yaos;
 if (mode === "coin") {
-yaos = []; for (let i = 0; i < 6; i++) { const v = coinYao(); yaos.push({...yaoInfo(v, i), yang: v === 7 || v === 9, moving: v === 6 || v === 9, label: labelOf(v === 7 || v === 9, i)});}
+yaos = []; for (let i = 0; i < 6; i++) { const v = coinYao(); const yg = (v === 7 || v === 9); yaos.push({yang: yg, moving: (v === 6 || v === 9), label: labelOf(yg, i)});}
 } else if (mode === "time") {
 const d = new Date();
 const up = (d.getFullYear() + d.getMonth() + 1 + d.getDate()) % 8;
 const lo = (d.getFullYear() + d.getMonth() + 1 + d.getDate() + d.getHours()) % 8;
 const mv = (d.getFullYear() + d.getMonth() + 1 + d.getDate() + d.getHours()) % 6;
+    const mvIdx = mv === 0 ? 5 : mv - 1; // 餘 0 為上爻
 const triBits = { 乾: [1,1,1], 兌: [1,1,0], 離: [1,0,1], 震: [1,0,0], 巽: [0,1,1], 坎: [0,1,0], 艮: [0,0,1], 坤: [0,0,0]};
 const names = ["坤", "乾", "兌", "離", "震", "巽", "坎", "艮"]; // 餘數對應
 const upN = names[up], loN = names[lo];
 const bits = [...triBits[loN],...triBits[upN]];
-yaos = bits.map((b, i) => ({ yang:!!b, moving: i === mv, label: labelOf(!!b, i)}));
+yaos = bits.map((b, i) => ({ yang:!!b, moving: i === mvIdx, label: labelOf(!!b, i)}));
 } else {
 const name = $("pickSel").value;
 const g = byName(name);
