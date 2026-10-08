@@ -194,7 +194,10 @@ async function goAI() {
 if (quotaLeft() <= 0) { alert("本月免費額度用完囉"); return;}
 const btn = $("goAI"); const btnTxt = btn.textContent;
 btn.disabled = true; btn.textContent = "解卦中…";
-$("aiOut").innerHTML = `<div class="loading"><div class="hexload"><i></i><i></i><i></i><i></i><i></i><i></i></div>正在觀變玩占…</div>`;
+const AI_STAGES = ["正在觀本卦…", "正在參詳變爻…", "正在寫白話解卦…"];
+let aiStageI = 0;
+$("aiOut").innerHTML = `<div class="loading"><div class="hexload"><i></i><i></i><i></i><i></i><i></i><i></i></div><div id="aiStageTxt">正在觀本卦…</div></div>`;
+const aiTimer = setInterval(() => { aiStageI = (aiStageI + 1) % AI_STAGES.length; const el = $("aiStageTxt"); if (el) el.textContent = AI_STAGES[aiStageI]; }, 3000);
 try {
 const { ben, zhi, yaos, question} = cur;
 const moving = yaos.map((y, i) => y.moving? { label: y.label, ben: ben.yao[i].text, zhi: zhi.yao[i].text, zhiLabel: zhi.yao[i].label}: null).filter(Boolean);
@@ -213,9 +216,11 @@ const blocks = [["現況", d.xiankuang], ["變數", d.bianhua], ["建議", d.jia
 $("aiOut").innerHTML = `<div class="ai-sec">` + blocks.map((b, i) =>
 `<div class="ai-block" style="animation-delay:${(i * 0.12).toFixed(2)}s"><h3>${b[0]}</h3><p>${esc(b[1])}</p></div>`).join("") + `</div>`;
 cur.ai = d; saveHist();
+clearInterval(aiTimer);
 $("shareBtn").disabled = false;
 $("askAgain").style.display = "";
 } catch (e) {
+clearInterval(aiTimer);
 $("aiOut").innerHTML = `<div class="loading">解卦失敗，請稍後再試（服務暫時忙線中）。</div>`;
 }
 btn.disabled = false; btn.textContent = btnTxt;
@@ -260,14 +265,30 @@ x.fillStyle = y.moving? "#b03a2e": "#22201b";
 if (y.yang) x.fillRect(cx - hw, yy, hw * 2, 14);
 else { x.fillRect(cx - hw, yy, hw - 24, 14); x.fillRect(cx + 24, yy, hw - 24, 14);}
 });
-x.fillStyle = "#5c564a"; x.font = "30px serif";
-const ql = cur.question.length > 26? cur.question.slice(0, 26) + "…": cur.question;
-x.fillText("問：" + ql, W / 2, H - 220);
-if (cur.ai && cur.ai.jianyi) {
-x.fillStyle = "#1e3a2f"; x.font = "32px serif";
-const s = cur.ai.jianyi.length > 40? cur.ai.jianyi.slice(0, 40) + "…": cur.ai.jianyi;
-x.fillText(s, W / 2, H - 160);
+// 雙線框：古風卷軸感
+x.strokeStyle = "#1e3a2f"; x.lineWidth = 2; x.strokeRect(52, 52, W - 104, H - 104);
+// 文字自動換行（中文逐字量測），絕不溢出
+function wrapLines(text, maxW, maxLines) {
+  const lines = []; let line = "";
+  for (const ch of text) {
+    if (x.measureText(line + ch).width > maxW) { lines.push(line); line = ch; }
+    else line += ch;
+    if (lines.length === maxLines) { line = ""; break; }
+  }
+  if (line) lines.push(line);
+  const consumed = lines.join("").length;
+  if (consumed < text.length && lines.length) lines[lines.length - 1] += "…";
+  return lines.slice(0, maxLines);
 }
+x.textAlign = "center";
+x.fillStyle = "#5c564a"; x.font = "30px serif";
+wrapLines("問：" + cur.question, 880, 2).forEach((ln, i) => x.fillText(ln, W / 2, H - 250 + i * 44));
+if (cur.ai && cur.ai.jianyi) {
+  x.fillStyle = "#1e3a2f"; x.font = "28px serif";
+  wrapLines(cur.ai.jianyi, 880, 3).forEach((ln, i) => x.fillText(ln, W / 2, H - 140 + i * 42));
+}
+x.fillStyle = "#8a8474"; x.font = "24px serif";
+x.fillText("易問・觀變玩占", W / 2, H - 78);
 const a = document.createElement("a");
 a.download = `易問_${cur.ben.name}.png`;
 a.href = c.toDataURL("image/png"); a.click();
