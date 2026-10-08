@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>易問 — 問事・起卦・觀變</title>
+<meta name="description" content="線上易經起卦與 AI 解卦：擲錢幣、時間起卦，六十四卦白話解讀與行動建議。">
+<style>
+:root{
+  --paper:#f6f2e8; --paper2:#efe9da; --ink:#22201b; --ink2:#5c564a;
+  --brand:#1e3a2f; --cinnabar:#b03a2e; --line:#ddd3bd; --card:#fffdf7;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+html{font-size:17px;}
+body{margin:0; background:var(--paper); color:var(--ink);
+  font-family:"Noto Serif TC","Songti TC","PMingLiU",serif; line-height:1.75;}
+.wrap{max-width:640px; margin:0 auto; padding:0 20px 80px;}
+header.top{text-align:center; padding:44px 0 8px;}
+header.top .seal{display:inline-block; background:var(--cinnabar); color:#fff;
+  width:52px; height:52px; line-height:52px; font-size:28px; border-radius:6px; margin-bottom:12px;}
+header.top h1{margin:0; font-size:2rem; letter-spacing:.35em; text-indent:.35em; font-weight:700;}
+header.top p{margin:6px 0 0; color:var(--ink2); font-size:.85rem; letter-spacing:.25em;}
+.card{background:var(--card); border:1px solid var(--line); border-radius:14px;
+  padding:22px 20px; margin:18px 0; box-shadow:0 2px 10px rgba(60,50,30,.05);}
+.card h2{margin:0 0 12px; font-size:1.05rem; letter-spacing:.2em; color:var(--brand);
+  border-bottom:1px solid var(--line); padding-bottom:10px;}
+textarea{width:100%; min-height:88px; border:1px solid var(--line); border-radius:10px;
+  background:#fff; padding:12px 14px; font-size:1rem; font-family:inherit; resize:vertical; color:var(--ink);}
+textarea:focus{outline:2px solid var(--brand); outline-offset:-1px;}
+.modes{display:flex; gap:10px; margin-top:14px;}
+.modes button{flex:1; border:1px solid var(--line); background:#fff; border-radius:10px;
+  padding:12px 4px; font-size:.92rem; font-family:inherit; cursor:pointer; color:var(--ink);}
+.modes button.on{background:var(--brand); color:#fff; border-color:var(--brand);}
+.btn{display:block; width:100%; border:none; border-radius:12px; padding:15px;
+  font-size:1.05rem; letter-spacing:.3em; text-indent:.3em; font-family:inherit; cursor:pointer;
+  background:var(--brand); color:#fff; margin-top:16px;}
+.btn:active{transform:scale(.985);}
+.btn.ghost{background:#fff; color:var(--brand); border:1px solid var(--brand);}
+.btn.cinnabar{background:var(--cinnabar);}
+.btn:disabled{opacity:.45; cursor:wait;}
+.hint{font-size:.8rem; color:var(--ink2); margin-top:10px;}
+/* 爻 */
+.yao-lines{display:flex; flex-direction:column-reverse; gap:10px; margin:16px 0;}
+.yao{display:flex; align-items:center; gap:12px;}
+.yao .bar{flex:1; height:26px; position:relative;}
+.yao .bar i{position:absolute; top:11px; height:4px; background:var(--ink); border-radius:2px;}
+.yao.yang .bar i{left:0; right:0;}
+.yao.yin .bar i.left{left:0; right:52%;} .yao.yin .bar i.right{left:52%; right:0;}
+.yao .lbl{width:44px; font-size:.8rem; color:var(--ink2);}
+.yao.moving .bar i{background:var(--cinnabar);}
+.yao.moving .lbl{color:var(--cinnabar); font-weight:700;}
+.yao.moving .lbl::after{content:" 變";}
+.gua-head{text-align:center; padding:8px 0 4px;}
+.gua-head .sym{font-size:3.4rem; line-height:1.2;}
+.gua-head .nm{font-size:1.6rem; letter-spacing:.3em; text-indent:.3em; margin-top:6px;}
+.gua-head .tri{color:var(--ink2); font-size:.85rem; margin-top:4px; letter-spacing:.15em;}
+.guaci{background:var(--paper2); border-radius:10px; padding:14px 16px; margin:14px 0; font-size:1.02rem;}
+.guaci .baihua{color:var(--ink2); font-size:.92rem; margin-top:8px; padding-top:8px; border-top:1px dashed var(--line);}
+.moving-list{margin:10px 0;}
+.moving-list .mi{border-left:3px solid var(--cinnabar); padding:8px 12px; margin:8px 0; background:#fff; border-radius:0 8px 8px 0;}
+.moving-list .mi b{color:var(--cinnabar);}
+.ai-sec h3{margin:18px 0 8px; font-size:1rem; color:var(--brand); letter-spacing:.15em;}
+.ai-sec h3::before{content:"◈ "; color:var(--cinnabar);}
+.ai-sec p{margin:6px 0;}
+.loading{text-align:center; color:var(--ink2); padding:24px 0;}
+.loading .spin{display:inline-block; width:26px; height:26px; border:3px solid var(--line);
+  border-top-color:var(--brand); border-radius:50%; animation:sp 1s linear infinite; vertical-align:-6px; margin-right:10px;}
+@keyframes sp{to{transform:rotate(360deg);}}
+.quota{background:#fff8f0; border:1px solid #e8cfae; border-radius:10px; padding:14px 16px; font-size:.9rem;}
+.hist-item{border-bottom:1px solid var(--line); padding:10px 2px; font-size:.9rem; cursor:pointer;}
+.hist-item:last-child{border-bottom:none;}
+.hist-item .t{color:var(--ink2); font-size:.78rem;}
+footer{margin-top:40px; text-align:center; color:var(--ink2); font-size:.78rem; line-height:2;}
+footer .disc{background:var(--paper2); border-radius:10px; padding:12px 16px; text-align:left; margin-bottom:16px;}
+select{width:100%; padding:12px; font-size:1rem; font-family:inherit; border:1px solid var(--line); border-radius:10px; background:#fff;}
+.coin-stage{text-align:center; padding:10px 0;}
+.coin{font-size:2.4rem; letter-spacing:.4em; text-indent:.4em;}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header class="top">
+  <div class="seal">易</div>
+  <h1>易問</h1>
+  <p>問事・起卦・觀變</p>
+</header>
+
+<div class="card">
+  <h2>一・問事</h2>
+  <textarea id="q" placeholder="把你心裡的事寫下來，越具體越好。例如：我該不該接下這個新專案？"></textarea>
+  <div class="modes" id="modes">
+    <button data-m="coin" class="on">擲錢幣起卦</button>
+    <button data-m="time">時間起卦</button>
+    <button data-m="pick">自選卦象</button>
+  </div>
+  <div id="modeExtra" style="margin-top:12px;"></div>
+  <button class="btn" id="goDivine">起 卦</button>
+  <div class="hint">傳統以三枚錢幣擲六次成卦。此處以數位隨機模擬，誠心則靈。</div>
+</div>
+
+<div class="card" id="guaCard" style="display:none;">
+  <h2>二・觀卦</h2>
+  <div class="gua-head">
+    <div class="sym" id="gSym">䷀</div>
+    <div class="nm" id="gName">乾</div>
+    <div class="tri" id="gTri"></div>
+  </div>
+  <div class="yao-lines" id="yaoLines"></div>
+  <div class="guaci">
+    <div id="gGuaci"></div>
+    <div class="baihua" id="gBaihua"></div>
+  </div>
+  <div id="movingWrap"></div>
+  <div id="zhiWrap"></div>
+</div>
+
+<div class="card" id="aiCard" style="display:none;">
+  <h2>三・解卦</h2>
+  <div class="quota" id="quotaBox"></div>
+  <button class="btn cinnabar" id="goAI">請 AI 解卦</button>
+  <div class="ai-sec" id="aiOut" style="margin-top:6px;"></div>
+  <div style="display:flex; gap:10px; margin-top:14px;">
+    <button class="btn ghost" id="shareBtn" style="margin-top:0;">生成分享圖卡</button>
+  </div>
+</div>
+
+<div class="card" id="histCard" style="display:none;">
+  <h2>占問記錄</h2>
+  <div id="histList"></div>
+</div>
+
+<footer>
+  <div class="disc">聲明：易問為決策參考工具，卦象解讀僅供思考角度之用，不構成命定之言，亦非專業建議（醫療、法律、投資請諮詢專業人士）。每月提供 3 次免費 AI 解卦。</div>
+  <div>易問 YIWEN ・ 觀變玩占</div>
+</footer>
+</div>
+<canvas id="shareCanvas" width="1080" height="1350" style="display:none;"></canvas>
+<script src="app.js"></script>
+</body>
+</html>
