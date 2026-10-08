@@ -99,38 +99,70 @@ const ben = findGua(yaos);
 const zhiYaos = yaos.map(y => y.moving? {...y, yang:!y.yang, moving: false}: y);
 const zhi = findGua(zhiYaos);
 cur = { ben, zhi, yaos, zhiYaos, question: q, method: mode, at: Date.now()};
-renderGua();
-$("guaCard").style.display = "";
-$("aiCard").style.display = "";
+const btn = $("goDivine"); const btnTxt = btn.textContent;
+btn.disabled = true; btn.textContent = "觀變中…";
+showEl($("guaCard")); showEl($("aiCard"));
 $("aiOut").innerHTML = "";
+$("shareBtn").disabled = true;
+$("askAgain").style.display = "none";
+renderGuaHead();
+$("yaoLines").innerHTML = "";
 saveHist();
 $("guaCard").scrollIntoView({ behavior: "smooth"});
+let _i = 0;
+const tick = () => {
+if (_i < 6) {
+$("yaoLines").insertAdjacentHTML("beforeend", yaoHTML(cur.yaos[_i], _i));
+_i++; setTimeout(tick, 450);
+} else {
+renderGuaRest();
+btn.disabled = false; btn.textContent = btnTxt;
+}
+};
+tick();
 }
 
-function renderGua() {
-const { ben, zhi, yaos} = cur;
+function showEl(el) {
+el.style.display = "";
+el.classList.remove("reveal"); void el.offsetWidth; el.classList.add("reveal");
+}
+
+function renderGuaHead() {
+const { ben } = cur;
 $("gSym").textContent = symOf(ben.name);
 $("gName").textContent = "第" + ben.n + "卦・" + ben.name;
 $("gTri").textContent = ben.lower_trigram + "下" + ben.upper_trigram + "上";
-$("gGuaci").textContent = "" + ben.guaci;
-$("gBaihua").textContent = "" + (bhOf(ben.name) || qsOf(ben.name) || "（白話解讀整理中）");
-$("yaoLines").innerHTML = yaos.map((y, i) => {
-const yy = ben.yao[i];
-return `<div class="yao ${y.yang? "yang": "yin"} ${y.moving? "moving": ""}">
+$("gGuaci").textContent = "";
+$("gBaihua").textContent = "";
+$("movingWrap").innerHTML = "";
+$("zhiWrap").innerHTML = "";
+}
+function yaoHTML(y, i) {
+const yy = cur.ben.yao[i];
+return `<div class="yao in${y.yang? " yang": " yin"}${y.moving? " moving": ""}">
 <div class="yao-top"><span class="lbl">${y.label}</span><span class="mvbadge">變</span>
 <div class="bar">${y.yang? "<i></i>": '<i class="left"></i><i class="right"></i>'}</div></div>
 <p class="yao-text">${yy? yy.text: ""}</p></div>`;
-}).join("");
-const mv = yaos.map((y, i) => y.moving? i: -1).filter(i => i >= 0);
-let mh = "";
-if (mv.length) {
-mh = `<h3 style="font-size:1rem;color:var(--brand);letter-spacing:.15em;">變爻（${mv.length}）</h3><div class="moving-list">` +
-mv.map(i => `<div class="mi"><b>${yaos[i].label}</b>：${ben.yao[i].text}<br><span style="color:var(--ink2);font-size:.88rem;">→ 之卦「${zhi.name}」${zhi.yao[i].label}：${zhi.yao[i].text}</span></div>`).join("") + `</div>`;
-} else {
-mh = `<div class="hint">無變爻。此卦氣專一，取卦辭斷之。</div>`;
 }
-$("movingWrap").innerHTML = mh;
-$("zhiWrap").innerHTML = `<div class="guaci" style="margin-top:12px;"><b>之卦：${symOf(zhi.name)} ${zhi.name}</b>（${zhi.lower_trigram}下${zhi.upper_trigram}上）<br>${zhi.guaci}<div class="baihua">${bhOf(zhi.name) || ""}</div></div>`;
+function renderGuaRest() {
+const { ben, zhi, yaos } = cur;
+$("gGuaci").textContent = "" + ben.guaci;
+$("gBaihua").textContent = "" + (bhOf(ben.name) || qsOf(ben.name) || "（白話解讀整理中）");
+const mv = yaos.map((y, i) => y.moving? i: -1).filter(i => i >= 0);
+if (mv.length) {
+$("movingWrap").innerHTML = `<h3 class="mh-title">變爻（${mv.length}）</h3><div class="moving-list">` +
+mv.map(i => `<div class="mi"><b>${yaos[i].label}</b>：${ben.yao[i].text}<br><span style="color:var(--ink2);font-size:.88rem;">→ 之卦「${zhi.name}」${zhi.yao[i].label}：${zhi.yao[i].text}</span></div>`).join("") + `</div>`;
+showEl($("movingWrap"));
+requestAnimationFrame(() => {
+document.querySelectorAll("#yaoLines .yao.moving").forEach(e => e.classList.add("fresh"));
+setTimeout(() => document.querySelectorAll("#yaoLines .yao.fresh").forEach(e => e.classList.remove("fresh")), 1400);
+});
+$("zhiWrap").innerHTML = `<div class="guaci zhi" style="margin-top:12px;"><b>之卦：${symOf(zhi.name)} ${zhi.name}</b>（${zhi.lower_trigram}下${zhi.upper_trigram}上）<br>${zhi.guaci}<div class="baihua">${bhOf(zhi.name) || ""}</div></div>`;
+showEl($("zhiWrap"));
+} else {
+$("movingWrap").innerHTML = `<div class="hint">無變爻。此卦氣專一，取卦辭斷之。</div>`;
+$("zhiWrap").innerHTML = "";
+}
 }
 
 /* ---------- AI 解卦 ---------- */
@@ -147,7 +179,7 @@ function renderQuota() {
 const n = quotaLeft();
 $("quotaBox").innerHTML = n > 0
 ? `本月免費 AI 解卦剩餘 <b style="color:var(--cinnabar);font-size:1.2rem;">${n}</b> 次`
-: `本月免費額度已用完。付費無限解卦即將開放，<b>留下 Email 可第一時間收到通知</b>。<div style="margin-top:10px;display:flex;gap:8px;"><input id="waitEmail" placeholder="your@email.com" style="flex:1;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:.95rem;"><button id="waitBtn" class="btn" style="margin:0;width:auto;padding:10px 18px;letter-spacing:.1em;text-indent:0;">通知我</button></div>`;
+: `本月免費額度已用完。付費無限解卦即將開放，<b>留下 Email 可第一時間收到通知</b>。<div style="margin-top:10px;display:flex;gap:8px;"><input id="waitEmail" placeholder="your@email.com" style="flex:1;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;"><button id="waitBtn" class="btn" style="margin:0;width:auto;padding:10px 18px;letter-spacing:.1em;text-indent:0;">通知我</button></div>`;
 const wb = $("waitBtn");
 if (wb) wb.onclick = () => {
 const em = $("waitEmail").value.trim();
@@ -160,8 +192,9 @@ $("quotaBox").innerHTML = "已收到！開放時第一時間通知你。";
 
 async function goAI() {
 if (quotaLeft() <= 0) { alert("本月免費額度用完囉"); return;}
-const btn = $("goAI"); btn.disabled = true;
-$("aiOut").innerHTML = `<div class="loading"><span class="spin"></span>正在觀變玩占…</div>`;
+const btn = $("goAI"); const btnTxt = btn.textContent;
+btn.disabled = true; btn.textContent = "解卦中…";
+$("aiOut").innerHTML = `<div class="loading"><div class="hexload"><i></i><i></i><i></i><i></i><i></i><i></i></div>正在觀變玩占…</div>`;
 try {
 const { ben, zhi, yaos, question} = cur;
 const moving = yaos.map((y, i) => y.moving? { label: y.label, ben: ben.yao[i].text, zhi: zhi.yao[i].text, zhiLabel: zhi.yao[i].label}: null).filter(Boolean);
@@ -176,16 +209,16 @@ moving, zhiGua: { name: zhi.name, n: zhi.n, guaci: zhi.guaci, baihua: bhOf(zhi.n
 if (!r.ok) throw new Error("服務暫時忙線中（" + r.status + "）");
 const d = await r.json();
 useQuota();
-$("aiOut").innerHTML = `<div class="ai-sec">
-<h3>現況</h3><p>${esc(d.xiankuang)}</p>
-<h3>變數</h3><p>${esc(d.bianhua)}</p>
-<h3>建議</h3><p>${esc(d.jianyi)}</p>
-<h3>提醒</h3><p>${esc(d.tixing)}</p></div>`;
+const blocks = [["現況", d.xiankuang], ["變數", d.bianhua], ["建議", d.jianyi], ["提醒", d.tixing]];
+$("aiOut").innerHTML = `<div class="ai-sec">` + blocks.map((b, i) =>
+`<div class="ai-block" style="animation-delay:${(i * 0.12).toFixed(2)}s"><h3>${b[0]}</h3><p>${esc(b[1])}</p></div>`).join("") + `</div>`;
 cur.ai = d; saveHist();
+$("shareBtn").disabled = false;
+$("askAgain").style.display = "";
 } catch (e) {
-$("aiOut").innerHTML = `<div class="loading">解卦失敗：${esc(e.message)}，請稍後再試。</div>`;
+$("aiOut").innerHTML = `<div class="loading">解卦失敗，請稍後再試（服務暫時忙線中）。</div>`;
 }
-btn.disabled = false;
+btn.disabled = false; btn.textContent = btnTxt;
 }
 const esc = s => String(s == null? "": s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
 
@@ -212,6 +245,7 @@ x.fillStyle = "#f6f2e8"; x.fillRect(0, 0, W, H);
 x.strokeStyle = "#1e3a2f"; x.lineWidth = 6; x.strokeRect(36, 36, W - 72, H - 72);
 x.fillStyle = "#b03a2e"; x.fillRect(W / 2 - 46, 110, 92, 92);
 x.fillStyle = "#fff"; x.font = "52px serif"; x.textAlign = "center"; x.fillText("易", W / 2, 178);
+x.strokeStyle = "rgba(255,255,255,.28)"; x.lineWidth = 3; x.strokeRect(W / 2 - 46 + 7, 110 + 7, 92 - 14, 92 - 14);
 x.fillStyle = "#22201b"; x.font = "64px serif";
 x.fillText("易 問", W / 2, 300);
 x.fillStyle = "#5c564a"; x.font = "30px serif"; x.fillText("問事・起卦・觀變", W / 2, 348);
@@ -242,4 +276,9 @@ a.href = c.toDataURL("image/png"); a.click();
 $("goDivine").addEventListener("click", doDivine);
 $("goAI").addEventListener("click", goAI);
 $("shareBtn").addEventListener("click", shareCard);
+$("askAgain").addEventListener("click", () => {
+$("q").value = "";
+window.scrollTo({ top: 0, behavior: "smooth" });
+setTimeout(() => { try { $("q").focus({ preventScroll: true }); } catch (e) { $("q").focus(); } }, 650);
+});
 load();
