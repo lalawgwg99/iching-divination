@@ -13,6 +13,7 @@ fetch("data/baihua.json").then(r => r.json()).catch(() => ({})),
 ]);
 GUA = g; SYM = s; BH = b;
 buildPick(); renderHist(); renderQuota();
+const yr = $("year"); if (yr) yr.textContent = new Date().getFullYear();
 }
 const byName = n => GUA.find(g => g.name === n);
 const symOf = n => SYM[n] || "";
@@ -39,6 +40,21 @@ const tri = b => ({ "111": "乾", "110": "兌", "101": "離", "100": "震", "011
 const lower = tri(bits.slice(0, 3).join(""));
 const upper = tri(bits.slice(3, 6).join(""));
 return GUA.find(g => g.lower_trigram === lower && g.upper_trigram === upper);
+}
+const TRIBITS = {乾:[1,1,1],兌:[1,1,0],離:[1,0,1],震:[1,0,0],巽:[0,1,1],坎:[0,1,0],艮:[0,0,1],坤:[0,0,0]};
+function yaoBitsOf(name) {
+const g = byName(name);
+return [...TRIBITS[g.lower_trigram], ...TRIBITS[g.upper_trigram]];
+}
+function guaLinesHTML(name, movingIdx, mini) {
+const bits = yaoBitsOf(name);
+let h = `<div class="gua-lines${mini ? " mini" : ""}">`;
+for (let p = 0; p < 6; p++) {
+const bi = 5 - p;
+const mv = movingIdx && movingIdx.indexOf(bi) >= 0;
+h += `<i class="${bits[bi] ? "yang" : "yin"}"${mv ? ' style="background:var(--cinnabar);"' : ""}></i>`;
+}
+return h + "</div>";
 }
 
 let mode = "coin";
@@ -102,16 +118,21 @@ cur = { ben, zhi, yaos, zhiYaos, question: q, method: mode, at: Date.now()};
 const btn = $("goDivine"); const btnTxt = btn.textContent;
 btn.disabled = true; btn.textContent = "觀變中…";
 showEl($("guaCard")); showEl($("aiCard"));
-$("aiOut").innerHTML = "";
+$("aiOut").innerHTML = `<div class="ai-guide">卦象已定，靜心觀卦。<br>想聽白話解讀，請按「白話解卦」。</div>`;
 $("shareBtn").disabled = true;
 $("askAgain").style.display = "none";
 renderGuaHead();
 $("yaoLines").innerHTML = "";
+for (let gi = 0; gi < 6; gi++) {
+$("yaoLines").insertAdjacentHTML("beforeend", `<div class="yao ghost"><div class="yao-top"><span class="lbl">　</span><div class="bar"><i></i></div></div></div>`);
+}
 saveHist();
 $("guaCard").scrollIntoView({ behavior: "smooth"});
 let _i = 0;
 const tick = () => {
 if (_i < 6) {
+const gh = $("yaoLines").querySelector(".yao.ghost");
+if (gh) gh.remove();
 $("yaoLines").insertAdjacentHTML("beforeend", yaoHTML(cur.yaos[_i], _i));
 _i++; setTimeout(tick, 450);
 } else {
@@ -128,8 +149,8 @@ el.classList.remove("reveal"); void el.offsetWidth; el.classList.add("reveal");
 }
 
 function renderGuaHead() {
-const { ben } = cur;
-$("gSym").textContent = symOf(ben.name);
+const { ben, yaos } = cur;
+$("gSym").innerHTML = guaLinesHTML(ben.name, yaos.map((y, i) => y.moving ? i : -1).filter(i => i >= 0));
 $("gName").textContent = "第" + ben.n + "卦・" + ben.name;
 $("gTri").textContent = ben.lower_trigram + "下" + ben.upper_trigram + "上";
 $("gGuaci").textContent = "";
@@ -151,13 +172,13 @@ $("gBaihua").textContent = "" + (bhOf(ben.name) || qsOf(ben.name) || "（白話�
 const mv = yaos.map((y, i) => y.moving? i: -1).filter(i => i >= 0);
 if (mv.length) {
 $("movingWrap").innerHTML = `<h3 class="mh-title">變爻（${mv.length}）</h3><div class="moving-list">` +
-mv.map(i => `<div class="mi"><b>${yaos[i].label}</b>：${ben.yao[i].text}<br><span style="color:var(--ink2);font-size:.88rem;">→ 之卦「${zhi.name}」${zhi.yao[i].label}：${zhi.yao[i].text}</span></div>`).join("") + `</div>`;
+mv.map(i => `<div class="mi"><b>${yaos[i].label}</b>：${ben.yao[i].text}<div class="zhi-link"><span class="zw">變為</span>　之卦「${zhi.name}」${zhi.yao[i].label}：${zhi.yao[i].text}</div></div>`).join("") + `</div>`;
 showEl($("movingWrap"));
 requestAnimationFrame(() => {
 document.querySelectorAll("#yaoLines .yao.moving").forEach(e => e.classList.add("fresh"));
 setTimeout(() => document.querySelectorAll("#yaoLines .yao.fresh").forEach(e => e.classList.remove("fresh")), 1400);
 });
-$("zhiWrap").innerHTML = `<div class="guaci zhi" style="margin-top:12px;"><b>之卦：${symOf(zhi.name)} ${zhi.name}</b>（${zhi.lower_trigram}下${zhi.upper_trigram}上）<br>${zhi.guaci}<div class="baihua">${bhOf(zhi.name) || ""}</div></div>`;
+$("zhiWrap").innerHTML = `<div class="mh-title">之卦</div><div class="guaci zhi" style="margin-top:8px;"><b>${zhi.name}</b>（${zhi.lower_trigram}下${zhi.upper_trigram}上）<br>${zhi.guaci}<div class="baihua">${bhOf(zhi.name) || ""}</div></div>`;
 showEl($("zhiWrap"));
 } else {
 $("movingWrap").innerHTML = `<div class="hint">無變爻。此卦氣專一，取卦辭斷之。</div>`;
@@ -178,7 +199,7 @@ q.n++; localStorage.setItem(quotaKey(), JSON.stringify(q)); renderQuota();
 function renderQuota() {
 const n = quotaLeft();
 $("quotaBox").innerHTML = n > 0
-? `本月免費 AI 解卦剩餘 <b style="color:var(--cinnabar);font-size:1.2rem;">${n}</b> 次`
+? `這個月還能請 AI 解卦 <b style="font-size:1.5rem;">${n}</b> 次`
 : `本月免費額度已用完。付費無限解卦即將開放，<b>留下 Email 可第一時間收到通知</b>。<div style="margin-top:10px;display:flex;gap:8px;"><input id="waitEmail" placeholder="your@email.com" style="flex:1;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;"><button id="waitBtn" class="btn" style="margin:0;width:auto;padding:10px 18px;letter-spacing:.1em;text-indent:0;">通知我</button></div>`;
 const wb = $("waitBtn");
 if (wb) wb.onclick = () => {
@@ -196,7 +217,7 @@ const btn = $("goAI"); const btnTxt = btn.textContent;
 btn.disabled = true; btn.textContent = "解卦中…";
 const AI_STAGES = ["正在觀本卦…", "正在參詳變爻…", "正在寫白話解卦…"];
 let aiStageI = 0;
-$("aiOut").innerHTML = `<div class="loading"><div class="hexload"><i></i><i></i><i></i><i></i><i></i><i></i></div><div id="aiStageTxt">正在觀本卦…</div></div>`;
+$("aiOut").innerHTML = `<div class="loading"><div style="font-size:.8rem;letter-spacing:.3em;color:var(--ink2);margin-bottom:12px;">觀卦中</div><div class="hexload"><i></i><i></i><i></i><i></i><i></i><i></i></div><div id="aiStageTxt">正在觀本卦…</div></div>`;
 const aiTimer = setInterval(() => { aiStageI = (aiStageI + 1) % AI_STAGES.length; const el = $("aiStageTxt"); if (el) el.textContent = AI_STAGES[aiStageI]; }, 3000);
 try {
 const { ben, zhi, yaos, question} = cur;
@@ -214,7 +235,7 @@ const d = await r.json();
 useQuota();
 const blocks = [["現況", d.xiankuang], ["變數", d.bianhua], ["建議", d.jianyi], ["提醒", d.tixing]];
 $("aiOut").innerHTML = `<div class="ai-sec">` + blocks.map((b, i) =>
-`<div class="ai-block" style="animation-delay:${(i * 0.12).toFixed(2)}s"><h3>${b[0]}</h3><p>${esc(b[1])}</p></div>`).join("") + `</div>`;
+`<div class="ai-block" style="animation-delay:${(i * 0.12).toFixed(2)}s"><h3>${b[0]}</h3><p>${esc(b[1])}</p></div>`).join("") + `<div class="closing">卦已觀畢，心中有數<br><span>決定，永遠在你手上。</span></div></div>`;
 cur.ai = d; saveHist();
 clearInterval(aiTimer);
 $("shareBtn").disabled = false;
@@ -238,7 +259,7 @@ function renderHist() {
 let h = []; try { h = JSON.parse(localStorage.getItem("yiwen_hist") || "[]");} catch {}
 if (!h.length) return;
 $("histCard").style.display = "";
-$("histList").innerHTML = h.map((x, i) => `<div class="hist-item" data-i="${i}"><b>${symOf(x.ben)} ${x.ben}</b> → ${x.zhi}　<span class="t">${new Date(x.at).toLocaleString("zh-TW")}</span><br>${esc(x.q.slice(0, 40))}</div>`).join("");
+$("histList").innerHTML = h.map((x) => `<div class="hist-item${x.ai ? " solved" : ""}"><span class="t">${new Date(x.at).toLocaleString("zh-TW")}</span><b>${guaLinesHTML(x.ben, null, true)} ${x.ben}</b> → ${x.zhi}<br><span style="color:var(--ink2);font-size:.88rem;">${esc(x.q.slice(0, 40))}</span></div>`).join("");
 }
 
 /* ---------- 分享圖卡 ---------- */
@@ -254,7 +275,17 @@ x.strokeStyle = "rgba(255,255,255,.28)"; x.lineWidth = 3; x.strokeRect(W / 2 - 4
 x.fillStyle = "#22201b"; x.font = "64px serif";
 x.fillText("易 問", W / 2, 300);
 x.fillStyle = "#5c564a"; x.font = "30px serif"; x.fillText("問事・起卦・觀變", W / 2, 348);
-x.fillStyle = "#22201b"; x.font = "150px serif"; x.fillText(symOf(cur.ben.name), W / 2, 540);
+// 手繪卦符爻線（不用系統字體卦符）
+(function(){
+const bits = yaoBitsOf(cur.ben.name);
+const topY = 430, lh = 26, lw = 150, cx = W / 2;
+x.fillStyle = "#22201b";
+bits.forEach((b, i) => {
+const y = topY + (5 - i) * lh;
+if (b) { x.fillRect(cx - lw / 2, y, lw, 12); }
+else { x.fillRect(cx - lw / 2, y, lw / 2 - 12, 12); x.fillRect(cx + 12, y, lw / 2 - 12, 12); }
+});
+})();
 x.font = "54px serif"; x.fillText(`第${cur.ben.n}卦・${cur.ben.name}`, W / 2, 640);
 x.fillStyle = "#5c564a"; x.font = "32px serif";
 x.fillText(`${cur.ben.lower_trigram}下${cur.ben.upper_trigram}上`, W / 2, 690);
