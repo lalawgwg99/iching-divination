@@ -49,19 +49,31 @@ document.querySelectorAll("#modes button").forEach(x => x.classList.toggle("on",
 renderModeExtra();
 });
 function renderModeExtra() {
+const MODE_DESC = {
+coin: "心裡有事，讓機率決定卦象——最傳統的問法。傳統以三枚錢幣擲六次成卦，此處以數位隨機模擬，誠心則靈。",
+time: "用現在的時間起卦，適合隨手一問，不用錢幣。",
+pick: "不問事，直接查卦：當易經辭典用，看某卦的卦辭、爻辭與白話。"
+};
 const ex = $("modeExtra");
+let h = `<div class="hint" style="margin-bottom:10px;">${MODE_DESC[mode]}</div>`;
 if (mode === "time") {
 const d = new Date();
-ex.innerHTML = `<div class="hint">將以現在時間起卦：${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}時</div>`;
+h += `<div class="hint">將以現在時間起卦：${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}時</div>`;
 } else if (mode === "pick") {
-ex.innerHTML = `<select id="pickSel">${GUA.map(g => `<option value="${g.name}">${g.n}. ${g.name}</option>`).join("")}</select>`;
-} else ex.innerHTML = "";
+h += `<select id="pickSel">${GUA.map(g => `<option value="${g.name}">${g.n}. ${g.name}</option>`).join("")}</select>`;
+}
+ex.innerHTML = h;
+$("goDivine").textContent = mode === "pick" ? "查 卦" : "起 卦";
+$("q").placeholder = mode === "pick" ? "查卦不用寫問題，直接選卦即可（也可以寫下想了解的角度）" : "把你心裡的事寫下來，越具體越好。例如：我該不該接下這個新專案？";
 }
 function buildPick() { renderModeExtra();}
 
 function doDivine() {
-const q = $("q").value.trim();
-if (!q) { alert("請先寫下你想問的事"); $("q").focus(); return;}
+let q = $("q").value.trim();
+if (!q) {
+if (mode === "pick") { q = `我想了解「${$("pickSel").value}」卦`; }
+else { alert("請先寫下你想問的事"); $("q").focus(); return;}
+}
 let yaos;
 if (mode === "coin") {
 yaos = []; for (let i = 0; i < 6; i++) { const v = coinYao(); const yg = (v === 7 || v === 9); yaos.push({yang: yg, moving: (v === 6 || v === 9), label: labelOf(yg, i)});}
