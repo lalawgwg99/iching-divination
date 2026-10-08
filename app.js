@@ -105,9 +105,9 @@ $("gBaihua").textContent = "" + (bhOf(ben.name) || qsOf(ben.name) || "（白話�
 $("yaoLines").innerHTML = yaos.map((y, i) => {
 const yy = ben.yao[i];
 return `<div class="yao ${y.yang? "yang": "yin"} ${y.moving? "moving": ""}">
-<span class="lbl">${y.label}</span>
-<div class="bar">${y.yang? "<i></i>": '<i class="left"></i><i class="right"></i>'}</div>
-<span class="lbl" style="width:auto;flex:0 0 auto;">${yy? yy.text: ""}</span></div>`;
+<div class="yao-top"><span class="lbl">${y.label}</span><span class="mvbadge">變</span>
+<div class="bar">${y.yang? "<i></i>": '<i class="left"></i><i class="right"></i>'}</div></div>
+<p class="yao-text">${yy? yy.text: ""}</p></div>`;
 }).join("");
 const mv = yaos.map((y, i) => y.moving? i: -1).filter(i => i >= 0);
 let mh = "";

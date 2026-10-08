@@ -22,6 +22,7 @@ header.top h1{margin:0; font-size:2rem; letter-spacing:.35em; text-indent:.35em;
 header.top p{margin:6px 0 0; color:var(--ink2); font-size:.85rem; letter-spacing:.25em;}
 .card{background:var(--card); border:1px solid var(--line); border-radius:14px;
   padding:22px 20px; margin:18px 0; box-shadow:0 2px 10px rgba(60,50,30,.05);}
+.card.plain{background:transparent; border:none; box-shadow:none; padding:20px 2px;}
 .card h2{margin:0 0 12px; font-size:1.05rem; letter-spacing:.2em; color:var(--brand);
   border-bottom:1px solid var(--line); padding-bottom:10px;}
 textarea{width:100%; min-height:88px; border:1px solid var(--line); border-radius:10px;
@@ -39,17 +40,26 @@ textarea:focus{outline:2px solid var(--brand); outline-offset:-1px;}
 .btn.cinnabar{background:var(--cinnabar);}
 .btn:disabled{opacity:.45; cursor:wait;}
 .hint{font-size:.8rem; color:var(--ink2); margin-top:10px;}
-/* 爻 */
-.yao-lines{display:flex; flex-direction:column-reverse; gap:10px; margin:16px 0;}
-.yao{display:flex; align-items:center; gap:12px;}
-.yao .bar{flex:1; height:26px; position:relative;}
-.yao .bar i{position:absolute; top:11px; height:4px; background:var(--ink); border-radius:2px;}
+/* 爻：兩行式，手機不擠 */
+.yao-lines{display:flex; flex-direction:column-reverse; gap:2px; margin:16px 0;}
+.yao{margin:12px 0;}
+.yao-top{display:flex; align-items:center; gap:10px;}
+.yao .lbl{min-width:48px; font-size:.9rem; color:var(--ink2); white-space:nowrap;}
+.yao .bar{flex:1; height:22px; position:relative;}
+.yao .bar i{position:absolute; top:9px; height:4px; background:var(--ink); border-radius:2px;}
 .yao.yang .bar i{left:0; right:0;}
 .yao.yin .bar i.left{left:0; right:52%;} .yao.yin .bar i.right{left:52%; right:0;}
-.yao .lbl{width:44px; font-size:.8rem; color:var(--ink2);}
 .yao.moving .bar i{background:var(--cinnabar);}
 .yao.moving .lbl{color:var(--cinnabar); font-weight:700;}
-.yao.moving .lbl::after{content:" 變";}
+.mvbadge{display:none; font-size:.72rem; color:#fff; background:var(--cinnabar);
+  border-radius:20px; padding:2px 10px; white-space:nowrap; letter-spacing:.1em;}
+.yao.moving .mvbadge{display:inline-block;}
+.yao-text{font-size:.88rem; color:var(--ink2); margin:5px 0 0; padding-left:58px; line-height:1.7;}
+/* 原理說明 */
+.principle h3{margin:16px 0 6px; font-size:.95rem; color:var(--brand); letter-spacing:.12em;}
+.principle h3::before{content:"◈ "; color:var(--cinnabar); font-size:.8rem;}
+.principle p{margin:4px 0 10px; font-size:.93rem; color:var(--ink);}
+.principle b{color:var(--cinnabar);}
 .gua-head{text-align:center; padding:8px 0 4px;}
 .gua-head .sym{font-size:3.4rem; line-height:1.2;}
 .gua-head .nm{font-size:1.6rem; letter-spacing:.3em; text-indent:.3em; margin-top:6px;}
@@ -98,7 +108,7 @@ select{width:100%; padding:12px; font-size:1rem; font-family:inherit; border:1px
   <div class="hint">傳統以三枚錢幣擲六次成卦。此處以數位隨機模擬，誠心則靈。</div>
 </div>
 
-<div class="card" id="guaCard" style="display:none;">
+<div class="card plain" id="guaCard" style="display:none;">
   <h2>二・觀卦</h2>
   <div class="gua-head">
     <div class="sym" id="gSym">䷀</div>
@@ -114,7 +124,7 @@ select{width:100%; padding:12px; font-size:1rem; font-family:inherit; border:1px
   <div id="zhiWrap"></div>
 </div>
 
-<div class="card" id="aiCard" style="display:none;">
+<div class="card plain" id="aiCard" style="display:none;">
   <h2>三・解卦</h2>
   <div class="quota" id="quotaBox"></div>
   <button class="btn cinnabar" id="goAI">請 AI 解卦</button>
@@ -124,9 +134,23 @@ select{width:100%; padding:12px; font-size:1rem; font-family:inherit; border:1px
   </div>
 </div>
 
-<div class="card" id="histCard" style="display:none;">
+<div class="card plain" id="histCard" style="display:none;">
   <h2>占問記錄</h2>
   <div id="histList"></div>
+</div>
+
+<div class="card plain">
+  <h2>四・易經原理</h2>
+  <div class="principle">
+    <h3>起卦</h3>
+    <p>傳統以三枚錢幣擲六次成卦，由下而上得六爻。三個字為老陽（⚊，會變）、三個花為老陰（⚋，會變），其餘為少陽少陰（不變）。本站以數位隨機模擬，機率與實體錢幣相同，誠心則靈。</p>
+    <h3>怎麼看一卦</h3>
+    <p><b>本卦</b>看現況——你現在的處境；<b>變爻</b>看關鍵——正在變動、最需要留意之處；<b>之卦</b>看走向——事情發展下去的趨勢。若無變爻，專看卦辭即可。</p>
+    <h3>六十四卦怎麼來</h3>
+    <p>八卦（乾☰、兌☱、離☲、震☳、巽☴、坎☵、艮☶、坤☷）兩兩相疊成六十四卦，每卦六爻，共三百八十四爻，涵蓋人生各種處境與變化。</p>
+    <h3>用什麼心態問</h3>
+    <p>易經是流傳三千年的決策參考書，不是命定之言。卦象給你換個角度看事情，決定永遠在你手上。</p>
+  </div>
 </div>
 
 <footer>
