@@ -1,7 +1,59 @@
 /* 易問 app.js */
 const API_BASE = "https://yiwen-api.taicalc.com";
 let GUA = [], SYM = {}, BH = {};
-let cur = null; // {ben, zhi, yaos:[{type,label,moving}], movingIdx:[], question, method}
+let cur = null;
+let ME = null;
+async function loadMe() {
+  try {
+    const r = await fetch(API_BASE + "/api/me", { credentials: "include" });
+    ME = await r.json();
+  } catch (e) { ME = { loggedIn: false }; }
+  renderAuth(); renderQuota();
+}
+function renderAuth() {
+  const box = $("authBox");
+  if (!ME || !ME.loggedIn) {
+    box.innerHTML = `<button class="line-btn" onclick="location.href=API_BASE+'/auth/line'">用 LINE 登入</button>`;
+    return;
+  }
+  const planLbl = ME.plan === "monthly" ? "月訂會員" : "免費會員";
+  box.innerHTML = `<span class="userchip">${ME.picture ? `<img src="${ME.picture}" alt="">` : ""}
+    <span>${esc(ME.name || "會員")}</span><span class="plan ${ME.plan}">${planLbl}</span>
+    <a href="${API_BASE}/auth/logout">登出</a></span>`;
+}
+function plansHTML() {
+  return `<div class="plans">
+    <div class="plan-card"><div class="pn">單次包</div><div class="pp">NT$49</div>
+      <div class="pd">10 次 AI 解卦<br>用完再買就好</div>
+      <button onclick="buyPlan('single')">購買</button></div>
+    <div class="plan-card hot"><span class="tag">划算</span><div class="pn">月訂無限</div>
+      <div class="pp">NT$149<small>/月</small></div>
+      <div class="pd">每天問到飽<br>隨時可取消</div>
+      <button onclick="buyPlan('monthly')">訂閱</button></div>
+  </div>`;
+}
+async function buyPlan(plan) {
+  try {
+    const r = await fetch(API_BASE + "/api/order", { method: "POST",
+      credentials: "include", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan }) });
+    const d = await r.json();
+    if (!r.ok) { alert(d.error === "login_required" ? "請先用 LINE 登入" : "目前無法建立訂單，請稍後再試"); return; }
+    const f = document.createElement("form");
+    f.method = "POST"; f.action = d.action;
+    for (const k in d.params) {
+      const i = document.createElement("input");
+      i.type = "hidden"; i.name = k; i.value = d.params[k]; f.appendChild(i);
+    }
+    document.body.appendChild(f); f.submit();
+  } catch (e) { alert("連線失敗，請稍後再試"); }
+}
+function toast(msg) {
+  const el = document.createElement("div");
+  el.className = "toast"; el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+} // {ben, zhi, yaos:[{type,label,moving}], movingIdx:[], question, method}
 
 const $ = id => document.getElementById(id);
 
@@ -197,10 +249,26 @@ let q; try { q = JSON.parse(localStorage.getItem(quotaKey()) || '{"n":0}');} cat
 q.n++; localStorage.setItem(quotaKey(), JSON.stringify(q)); renderQuota();
 }
 function renderQuota() {
+if (ME && ME.loggedIn) { renderQuotaMember(); return; }
 const n = quotaLeft();
 $("quotaBox").innerHTML = n > 0
 ? `這個月還能請 AI 解卦 <b style="font-size:1.5rem;">${n}</b> 次`
 : `本月免費額度已用完。付費無限解卦即將開放，<b>留下 Email 可第一時間收到通知</b>。<div style="margin-top:10px;display:flex;gap:8px;"><input id="waitEmail" placeholder="your@email.com" style="flex:1;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;"><button id="waitBtn" class="btn" style="margin:0;width:auto;padding:10px 18px;letter-spacing:.1em;text-indent:0;">通知我</button></div>`;
+function renderQuotaMember() {
+  const box = $("quotaBox");
+  if (ME.plan === "monthly") {
+    box.innerHTML = `月訂會員・無限解卦 <span style="color:var(--ink2);font-size:.85rem;">有效期至 ${new Date(ME.expiresAt * 1000).toLocaleDateString("zh-TW")}</span>`;
+    return;
+  }
+  const parts = [];
+  if (ME.freeLeft > 0) parts.push(`本月免費 <b style="font-size:1.5rem;">${ME.freeLeft}</b> 次`);
+  if (ME.credits > 0) parts.push(`單次包剩餘 <b style="font-size:1.5rem;color:var(--cinnabar);">${ME.credits}</b> 次`);
+  if (!parts.length) {
+    box.innerHTML = `免費額度用完了，升級繼續問：` + plansHTML();
+    return;
+  }
+  box.innerHTML = parts.join("・");
+}
 const wb = $("waitBtn");
 if (wb) wb.onclick = () => {
 const em = $("waitEmail").value.trim();
@@ -212,7 +280,7 @@ $("quotaBox").innerHTML = "已收到！開放時第一時間通知你。";
 }
 
 async function goAI() {
-if (quotaLeft() <= 0) { alert("本月免費額度用完囉"); return;}
+if (!(ME && ME.loggedIn) && quotaLeft() <= 0) { alert("本月免費額度用完囉"); return;}
 const btn = $("goAI"); const btnTxt = btn.textContent;
 btn.disabled = true; btn.textContent = "解卦中…";
 const AI_STAGES = ["正在觀本卦…", "正在參詳變爻…", "正在寫白話解卦…"];
@@ -223,16 +291,21 @@ try {
 const { ben, zhi, yaos, question} = cur;
 const moving = yaos.map((y, i) => y.moving? { label: y.label, ben: ben.yao[i].text, zhi: zhi.yao[i].text, zhiLabel: zhi.yao[i].label}: null).filter(Boolean);
 const r = await fetch(API_BASE + "/divine", {
-method: "POST", headers: { "Content-Type": "application/json"},
+method: "POST", credentials: "include", headers: { "Content-Type": "application/json"},
 body: JSON.stringify({
 question,
 benGua: { name: ben.name, n: ben.n, guaci: ben.guaci, baihua: bhOf(ben.name)},
 moving, zhiGua: { name: zhi.name, n: zhi.n, guaci: zhi.guaci, baihua: bhOf(zhi.name)}
 })
 });
+if (r.status === 402) {
+  clearInterval(aiTimer);
+  $("aiOut").innerHTML = `<div class="loading">免費額度用完了，升級繼續問：</div>` + plansHTML();
+  btn.disabled = false; btn.textContent = btnTxt; return;
+}
 if (!r.ok) throw new Error("服務暫時忙線中（" + r.status + "）");
 const d = await r.json();
-useQuota();
+if (ME && ME.loggedIn) { loadMe(); } else { useQuota(); }
 const blocks = [["現況", d.xiankuang], ["變數", d.bianhua], ["建議", d.jianyi], ["提醒", d.tixing]];
 $("aiOut").innerHTML = `<div class="ai-sec">` + blocks.map((b, i) =>
 `<div class="ai-block" style="animation-delay:${(i * 0.12).toFixed(2)}s"><h3>${b[0]}</h3><p>${esc(b[1])}</p></div>`).join("") + `<div class="closing">卦已觀畢，心中有數<br><span>決定，永遠在你手上。</span></div></div>`;
@@ -327,10 +400,17 @@ a.href = c.toDataURL("image/png"); a.click();
 
 $("goDivine").addEventListener("click", doDivine);
 $("goAI").addEventListener("click", goAI);
+(function handleReturn() {
+  const q = new URLSearchParams(location.search);
+  if (q.get("login") === "ok") { toast("登入成功，歡迎回來"); history.replaceState(null, "", location.pathname); }
+  if (q.get("login") === "fail") { toast("登入失敗，請再試一次"); history.replaceState(null, "", location.pathname); }
+  if (q.get("paid") === "1") { toast("付款成功，額度已入帳"); history.replaceState(null, "", location.pathname); setTimeout(() => loadMe(), 1500); }
+})();
 $("shareBtn").addEventListener("click", shareCard);
 $("askAgain").addEventListener("click", () => {
 $("q").value = "";
 window.scrollTo({ top: 0, behavior: "smooth" });
 setTimeout(() => { try { $("q").focus({ preventScroll: true }); } catch (e) { $("q").focus(); } }, 650);
 });
+loadMe();
 load();
