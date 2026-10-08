@@ -1,5 +1,5 @@
 /* 易問 app.js */
-const API_BASE = "https://iching-api.laladoo99.workers.dev"; // 上線後依實際 subdomain 調整
+const API_BASE = "https://yiwen-api.taicalc.com";
 let GUA = [], SYM = {}, BH = {};
 let cur = null; // {ben, zhi, yaos:[{type,label,moving}], movingIdx:[], question, method}
 
