@@ -64,7 +64,7 @@ fetch("data/gua_symbols.json").then(r => r.json()),
 fetch("data/baihua.json").then(r => r.json()).catch(() => ({})),
 ]);
 GUA = g; SYM = s; BH = b;
-buildPick(); renderHist(); renderQuota();
+buildPick(); renderHist(); renderQuota(); renderDaily();
 const yr = $("year"); if (yr) yr.textContent = new Date().getFullYear();
 }
 const byName = n => GUA.find(g => g.name === n);
@@ -397,6 +397,94 @@ const a = document.createElement("a");
 a.download = `易問_${cur.ben.name}.png`;
 a.href = c.toDataURL("image/png"); a.click();
 }
+
+/* ---------- v3：每日一卦 ---------- */
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+let DAILY = null;
+function renderDaily() {
+  const now = new Date();
+  const seed = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+  const rnd = mulberry32(seed);
+  const g = GUA[Math.floor(rnd() * 64)];
+  const yi = Math.floor(rnd() * 6);
+  DAILY = { g, yi, date: now };
+  const wd = ["日", "一", "二", "三", "四", "五", "六"][now.getDay()];
+  $("dailyDate").textContent = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日・星期${wd}`;
+  $("dailyHex").innerHTML = guaLinesHTML(g.name);
+  $("dailyName").textContent = `第${g.n}卦・${g.name}`;
+  $("dailyGuaci").textContent = g.guaci;
+  $("dailyBaihua").textContent = bhOf(g.name);
+  $("dailyQs").innerHTML = `<b>今日啟示</b><br>${esc(qsOf(g.name))}`;
+  const yao = g.yao[yi];
+  $("dailyYao").innerHTML = `今日之爻・<b>${yao.label}</b>「${esc(yao.text)}」`;
+}
+function wrapLinesC(x, text, maxW, maxLines) {
+  const lines = []; let line = "";
+  for (const ch of text) {
+    if (x.measureText(line + ch).width > maxW) { lines.push(line); line = ch; }
+    else line += ch;
+    if (lines.length === maxLines) { line = ""; break; }
+  }
+  if (line) lines.push(line);
+  const consumed = lines.join("").length;
+  if (consumed < text.length && lines.length) lines[lines.length - 1] += "…";
+  return lines.slice(0, maxLines);
+}
+function dailyCard() {
+  if (!DAILY) return;
+  const { g, yi, date } = DAILY;
+  const c = $("shareCanvas"), x = c.getContext("2d");
+  const W = 1080, H = 1350;
+  x.fillStyle = "#f6f2e8"; x.fillRect(0, 0, W, H);
+  x.strokeStyle = "#1e3a2f"; x.lineWidth = 6; x.strokeRect(36, 36, W - 72, H - 72);
+  x.strokeStyle = "#1e3a2f"; x.lineWidth = 2; x.strokeRect(52, 52, W - 104, H - 104);
+  x.fillStyle = "#b03a2e"; x.fillRect(W / 2 - 46, 96, 92, 92);
+  x.fillStyle = "#fff"; x.font = "52px serif"; x.textAlign = "center"; x.fillText("易", W / 2, 164);
+  x.fillStyle = "#22201b"; x.font = "60px serif";
+  x.fillText("易 問", W / 2, 280);
+  x.fillStyle = "#5c564a"; x.font = "30px serif"; x.fillText("每日一卦", W / 2, 328);
+  const wd = ["日", "一", "二", "三", "四", "五", "六"][date.getDay()];
+  x.fillStyle = "#8a8474"; x.font = "28px serif";
+  x.fillText(`${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日・星期${wd}`, W / 2, 372);
+  const bits = yaoBitsOf(g.name);
+  const topY = 430, lh = 30, lw = 170, cx = W / 2;
+  x.fillStyle = "#22201b";
+  bits.forEach((b, i) => {
+    const y = topY + (5 - i) * lh;
+    if (b) x.fillRect(cx - lw / 2, y, lw, 13);
+    else { x.fillRect(cx - lw / 2, y, lw / 2 - 13, 13); x.fillRect(cx + 13, y, lw / 2 - 13, 13); }
+  });
+  let yy = 700;
+  x.fillStyle = "#22201b"; x.font = "56px serif";
+  x.fillText(`第${g.n}卦・${g.name}`, W / 2, yy); yy += 62;
+  x.fillStyle = "#5c564a"; x.font = "30px serif";
+  wrapLinesC(x, g.guaci, 880, 2).forEach(ln => { x.fillText(ln, W / 2, yy); yy += 46; });
+  yy += 18;
+  x.fillStyle = "#8a8474"; x.font = "28px serif";
+  wrapLinesC(x, bhOf(g.name), 880, 2).forEach(ln => { x.fillText(ln, W / 2, yy); yy += 44; });
+  yy += 24;
+  x.fillStyle = "#b03a2e"; x.font = "34px serif";
+  x.fillText("今日啟示", W / 2, yy); yy += 48;
+  x.fillStyle = "#22201b"; x.font = "32px serif";
+  wrapLinesC(x, qsOf(g.name), 880, 3).forEach(ln => { x.fillText(ln, W / 2, yy); yy += 48; });
+  yy += 20;
+  const yao = g.yao[yi];
+  x.fillStyle = "#5c564a"; x.font = "28px serif";
+  wrapLinesC(x, `今日之爻・${yao.label}「${yao.text}」`, 880, 2).forEach(ln => { x.fillText(ln, W / 2, yy); yy += 44; });
+  x.fillStyle = "#b03a2e"; x.font = "26px serif";
+  x.fillText("易問・觀變玩占", W / 2, H - 92);
+  const a = document.createElement("a");
+  a.download = `易問_每日一卦_${date.getMonth() + 1}${date.getDate()}.png`;
+  a.href = c.toDataURL("image/png"); a.click();
+}
+$("dailyShare").addEventListener("click", dailyCard);
 
 $("goDivine").addEventListener("click", doDivine);
 $("goAI").addEventListener("click", goAI);
