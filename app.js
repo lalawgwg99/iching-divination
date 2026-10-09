@@ -498,9 +498,7 @@ function dailyCard() {
   wrapLinesC(x, `今日之爻・${yao.label}「${yao.text}」`, 880, 2).forEach(ln => { x.fillText(ln, W / 2, yy); yy += 44; });
   x.fillStyle = "#b03a2e"; x.font = "26px serif";
   x.fillText("易問・觀變玩占", W / 2, H - 92);
-  const a = document.createElement("a");
-  a.download = `易問_每日一卦_${date.getMonth() + 1}${date.getDate()}.png`;
-  a.href = c.toDataURL("image/png"); a.click();
+  showCardPreview(c.toDataURL("image/png"), `易問_每日一卦_${date.getMonth() + 1}${date.getDate()}.png`);
 }
 $("dailyShare").addEventListener("click", dailyCard);
 
