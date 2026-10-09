@@ -612,7 +612,7 @@ function lifeGo() {
   localStorage.setItem("yiwen_birth", v);
   LIFE = buildLife(yy, mm, dd);
   const mg = LIFE.ming;
-  $("lifeMing").innerHTML = `你的命卦：<b>第${mg.n}卦・${mg.name}</b>${guaLinesHTML(mg.name, true)}<div style="color:var(--ink2);font-size:.85rem;">${esc(mg.guaci)}</div>`;
+  $("lifeMing").innerHTML = `你的命卦：<b>第${mg.n}卦・${mg.name}</b>${guaLinesHTML(mg.name, null, true)}<div style="color:var(--ink2);font-size:.85rem;">${esc(mg.guaci)}</div>`;
   ["lifeSwitch", "lifeCanvas", "lifePick", "lifeInfo"].forEach(id => $(id).style.display = "");
   buildLifeSel();
   const nowA = Math.max(0, Math.min(90, new Date().getFullYear() - yy));
