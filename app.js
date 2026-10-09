@@ -413,20 +413,20 @@ toast("覆盤完成");
 }
 
 /* ---------- 追問 ---------- */
-let followHist = [], followLeft = 3;
+let followHist = [];
 function resetFollow() {
-followHist = []; followLeft = 3;
+followHist = [];
 $("followList").innerHTML = ""; $("followQ").value = "";
 $("followWrap").style.display = "";
 renderFollowHint();
 }
 function renderFollowHint() {
-$("followHint").textContent = followLeft > 0 ? `還能追問 ${followLeft} 次（每次消耗 1 次額度）` : "這卦追問到這裡囉，再問一卦吧";
+const logged = ME && ME.loggedIn;
+$("followHint").textContent = logged ? "每次追問消耗 1 次額度" : `每次追問消耗 1 次額度（本月剩餘 ${quotaLeft()} 次）`;
 }
 async function sendFollow() {
 const q = $("followQ").value.trim();
 if (!q || !cur || !cur.ai) return;
-if (followLeft <= 0) { alert("這卦追問到這裡囉"); return; }
 const logged = ME && ME.loggedIn;
 if (!logged && quotaLeft() <= 0) { alert("本月免費額度用完囉"); return; }
 const btn = $("followBtn");
@@ -449,7 +449,6 @@ btn.disabled = false; return;
 if (!r.ok) throw new Error("busy");
 const d = await r.json();
 followHist.push({ role: "user", text: q }, { role: "ai", text: d.answer });
-followLeft--;
 if (logged) loadMe(); else useQuota();
 renderFollow();
 } catch (e) {
