@@ -502,6 +502,144 @@ function dailyCard() {
 }
 $("dailyShare").addEventListener("click", dailyCard);
 
+
+/* ---------- v4：人生運勢圖 ---------- */
+let LIFE = null;
+function buildLife(y, m, d) {
+  const seed = y * 10000 + m * 100 + d;
+  const ming = GUA[Math.floor(mulberry32(seed)() * 64)];
+  const years = [];
+  let prevC = null;
+  for (let ag = 0; ag <= 90; ag++) {
+    const r = mulberry32(seed * 131 + ag);
+    const g = GUA[Math.floor(r() * 64)];
+    const moving = Math.floor(r() * 4);
+    const yang = yaoBitsOf(g.name).reduce((s, b) => s + b, 0);
+    const c = Math.round(yang / 6 * 100);
+    const o = prevC === null ? c : prevC;
+    const vol = moving * 5;
+    years.push({ age: ag, year: y + ag, g, moving,
+      o, c, h: Math.min(100, Math.max(o, c) + vol), l: Math.max(0, Math.min(o, c) - vol) });
+    prevC = c;
+  }
+  years.forEach((yr, i) => {
+    let s = 0, n = 0;
+    for (let k = Math.max(0, i - 4); k <= i; k++) { s += years[k].c; n++; }
+    yr.ma = Math.round(s / n);
+  });
+  const decades = [];
+  for (let dd = 0; dd < 9; dd++) {
+    const seg = years.slice(dd * 10, dd * 10 + 10);
+    decades.push({ age0: dd * 10, label: `${dd * 10}–${dd * 10 + 9}歲`,
+      o: seg[0].o, c: seg[9].c,
+      h: Math.max(...seg.map(s => s.h)), l: Math.min(...seg.map(s => s.l)),
+      g: seg[5].g, moving: Math.round(seg.reduce((s, x) => s + x.moving, 0) / 10) });
+  }
+  return { y, m, d, seed, ming, years, decades, period: "year", sel: null };
+}
+function lifeData() { return LIFE.period === "year" ? LIFE.years : LIFE.decades; }
+function drawLife() {
+  if (!LIFE) return;
+  const cv = $("lifeCanvas");
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth, H = 340;
+  if (!W) return;
+  cv.width = W * dpr; cv.height = H * dpr;
+  const x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const data = lifeData();
+  const padL = 6, padR = 6, padT = 14, padB = 30, volH = 52;
+  const priceH = H - padT - padB - volH - 8;
+  const py = v => padT + (100 - v) / 100 * priceH;
+  const n = data.length, step = (W - padL - padR) / n, cw = Math.max(1.5, step * 0.62);
+  x.strokeStyle = "#e7dfc9"; x.lineWidth = 1;
+  [0, 25, 50, 75, 100].forEach(v => { x.beginPath(); x.moveTo(padL, py(v)); x.lineTo(W - padR, py(v)); x.stroke(); });
+  x.fillStyle = "#8a8474"; x.font = "11px serif"; x.textAlign = "center";
+  data.forEach((d, i) => {
+    const lbl = LIFE.period === "year" ? (d.age % 10 === 0 ? d.age + "歲" : null) : d.label;
+    if (lbl) x.fillText(lbl, padL + step * (i + 0.5), H - 10);
+  });
+  const vmax = Math.max(...data.map(d => d.moving), 1);
+  data.forEach((d, i) => {
+    const cx = padL + step * (i + 0.5);
+    const col = d.c >= d.o ? "#b03a2e" : "#2f5d43";
+    x.strokeStyle = col; x.fillStyle = col; x.lineWidth = Math.max(1, cw * 0.3);
+    x.beginPath(); x.moveTo(cx, py(d.h)); x.lineTo(cx, py(d.l)); x.stroke();
+    const yO = py(d.o), yC = py(d.c);
+    x.fillRect(cx - cw / 2, Math.min(yO, yC), cw, Math.max(1.5, Math.abs(yC - yO)));
+    x.globalAlpha = 0.3;
+    const vh = d.moving / vmax * volH;
+    x.fillRect(cx - cw / 2, H - padB - vh, cw, vh);
+    x.globalAlpha = 1;
+  });
+  if (LIFE.period === "year") {
+    x.strokeStyle = "#b98a2f"; x.lineWidth = 1.6; x.beginPath();
+    LIFE.years.forEach((d, i) => { const cx = padL + step * (i + 0.5); i ? x.lineTo(cx, py(d.ma)) : x.moveTo(cx, py(d.ma)); });
+    x.stroke();
+  }
+  if (LIFE.sel != null && data[LIFE.sel]) {
+    const cx = padL + step * (LIFE.sel + 0.5);
+    x.strokeStyle = "#1e3a2f"; x.setLineDash([4, 3]); x.lineWidth = 1;
+    x.beginPath(); x.moveTo(cx, padT); x.lineTo(cx, H - padB); x.stroke(); x.setLineDash([]);
+  }
+  LIFE._geom = { padL, step, n };
+}
+function buildLifeSel() {
+  const sel = $("lifeYearSel");
+  const data = lifeData();
+  sel.innerHTML = data.map((d, i) => {
+    const t = LIFE.period === "year" ? `${d.age}歲・${d.year}年` : `${d.label}（${LIFE.y + d.age0}年起）`;
+    return `<option value="${i}">${t}</option>`;
+  }).join("");
+  sel.onchange = () => selectLife(Number(sel.value));
+}
+function selectLife(i) {
+  LIFE.sel = i;
+  const d = lifeData()[i];
+  if (!d) return;
+  $("lifeYearSel").value = String(i);
+  const g = d.g;
+  const title = LIFE.period === "year" ? `${d.age}歲・${d.year}年` : `${d.label}・${LIFE.y + d.age0}年起`;
+  $("lifeInfo").innerHTML = `<div class="yr">${title}</div>
+    <div class="gname">第${g.n}卦・${g.name}</div>
+    <div>${esc(g.guaci)}</div>
+    <div style="color:var(--ink2);font-size:.85rem;">${d.moving > 0 ? "動盪 " + d.moving + " 爻" : "平穩無動爻"}・運勢 ${d.c}</div>`;
+  drawLife();
+}
+function lifeGo() {
+  const v = $("birthDate").value;
+  if (!v) { toast("請先選擇出生日期"); return; }
+  const [yy, mm, dd] = v.split("-").map(Number);
+  localStorage.setItem("yiwen_birth", v);
+  LIFE = buildLife(yy, mm, dd);
+  const mg = LIFE.ming;
+  $("lifeMing").innerHTML = `你的命卦：<b>第${mg.n}卦・${mg.name}</b>${guaLinesHTML(mg.name, true)}<div style="color:var(--ink2);font-size:.85rem;">${esc(mg.guaci)}</div>`;
+  ["lifeSwitch", "lifeCanvas", "lifePick", "lifeInfo"].forEach(id => $(id).style.display = "");
+  buildLifeSel();
+  const nowA = Math.max(0, Math.min(90, new Date().getFullYear() - yy));
+  selectLife(LIFE.period === "year" ? nowA : Math.floor(nowA / 10));
+}
+$("lifeGo").addEventListener("click", lifeGo);
+document.querySelectorAll("#lifeSwitch button").forEach(b => b.onclick = () => {
+  if (!LIFE) return;
+  document.querySelectorAll("#lifeSwitch button").forEach(x => x.classList.toggle("on", x === b));
+  LIFE.period = b.dataset.p;
+  buildLifeSel();
+  const nowA = Math.max(0, Math.min(90, new Date().getFullYear() - LIFE.y));
+  selectLife(LIFE.period === "year" ? nowA : Math.floor(nowA / 10));
+});
+$("lifeCanvas").addEventListener("click", e => {
+  if (!LIFE || !LIFE._geom) return;
+  const r = $("lifeCanvas").getBoundingClientRect();
+  const i = Math.floor((e.clientX - r.left - LIFE._geom.padL) / LIFE._geom.step);
+  if (i >= 0 && i < LIFE._geom.n) selectLife(i);
+});
+let _lrzT = null;
+window.addEventListener("resize", () => { clearTimeout(_lrzT); _lrzT = setTimeout(drawLife, 200); });
+(function lifeInit() {
+  const v = localStorage.getItem("yiwen_birth");
+  if (v && $("birthDate")) { $("birthDate").value = v; }
+})();
+
 $("goDivine").addEventListener("click", doDivine);
 $("goAI").addEventListener("click", goAI);
 (function handleReturn() {

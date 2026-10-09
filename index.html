@@ -219,6 +219,24 @@ header.top{position:relative;}
 .cardmodal-actions{display:flex; gap:10px; margin-top:12px;}
 .cardmodal-actions .btn{flex:1; margin:0; text-decoration:none; display:inline-block; text-align:center;}
 .cardmodal-box .hint{margin-top:10px;}
+/* v4：人生運勢圖 */
+.lifecard .hint{font-size:.82rem; color:var(--ink2); line-height:1.8; margin:6px 0 12px;}
+.life-input{display:flex; gap:8px; margin-bottom:12px;}
+.life-input input{flex:1; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font-size:1rem;
+  font-family:inherit; background:#fffdf8; color:var(--ink); min-width:0;}
+.life-ming{text-align:center; margin:4px 0 12px; font-size:.95rem; line-height:2;}
+.life-ming .gua-lines{margin:8px auto;}
+.life-switch{display:flex; gap:8px; margin-bottom:10px;}
+.life-switch button{flex:1; border:1px solid var(--line); background:transparent; border-radius:8px; padding:9px 0;
+  font-family:inherit; font-size:.88rem; color:var(--ink2); cursor:pointer; letter-spacing:.15em;}
+.life-switch button.on{background:var(--brand); color:#fff; border-color:var(--brand);}
+#lifeCanvas{width:100%; display:block; touch-action:manipulation;}
+.life-pick{margin:10px 0 4px;}
+.life-pick select{width:100%; padding:10px; border:1px solid var(--line); border-radius:8px; font-size:1rem;
+  font-family:inherit; background:#fffdf8; color:var(--ink);}
+.life-info{border-left:3px solid var(--cinnabar); padding:4px 0 4px 14px; font-size:.92rem; line-height:2; margin-top:10px;}
+.life-info .yr{font-size:1rem; letter-spacing:.12em;}
+.life-info .gname{font-size:1.25rem; letter-spacing:.15em; margin:2px 0; font-weight:700;}
 </style>
 </head>
 <body>
@@ -302,6 +320,24 @@ header.top{position:relative;}
     <p>易經是流傳三千年的決策參考書，不是命定之言。卦象給你換個角度看事情，決定永遠在你手上。</p></details>
   </div>
 </div>
+
+<section class="card lifecard">
+  <h2><span class="vol">卷五</span><span class="t">人生運勢圖</span></h2>
+  <div class="hint">輸入生日，以生日為種子起命卦，排出 0–90 歲的運勢 K 線。像看股票一樣，看自己的人生。</div>
+  <div class="life-input">
+    <input type="date" id="birthDate">
+    <button id="lifeGo" class="btn" style="margin:0;width:auto;padding:10px 22px;letter-spacing:.1em;text-indent:0;">排出命盤</button>
+  </div>
+  <div id="lifeMing" class="life-ming"></div>
+  <div class="life-switch" id="lifeSwitch" style="display:none;">
+    <button data-p="year" class="on">年 K</button>
+    <button data-p="dec">十年運 K</button>
+  </div>
+  <canvas id="lifeCanvas" height="340" style="display:none;"></canvas>
+  <div class="life-pick" id="lifePick" style="display:none;"><select id="lifeYearSel"></select></div>
+  <div id="lifeInfo" class="life-info" style="display:none;"></div>
+  <div class="hint" style="margin-top:14px;">人生運勢圖為本站自創的娛樂模型（以生日為種子起卦），非古法占斷，僅供參考，非投資建議。生日只存在你的瀏覽器，不會上傳。</div>
+</section>
 
 <footer>
   <div class="disc">易問為決策參考工具，卦象解讀僅供思考角度之用，不構成命定之言，亦非專業建議（醫療、法律、投資請諮詢專業人士）。每月提供 3 次免費 AI 解卦。</div>
