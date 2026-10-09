@@ -503,7 +503,8 @@ function dailyCard() {
 $("dailyShare").addEventListener("click", dailyCard);
 
 
-/* ---------- v4：人生運勢圖 ---------- */
+
+/* ---------- v4：人生運勢圖（曲線主視覺＋K線鑽取） ---------- */
 let LIFE = null;
 function buildLife(y, m, d) {
   const seed = y * 10000 + m * 100 + d;
@@ -535,71 +536,156 @@ function buildLife(y, m, d) {
       h: Math.max(...seg.map(s => s.h)), l: Math.min(...seg.map(s => s.l)),
       g: seg[5].g, moving: Math.round(seg.reduce((s, x) => s + x.moving, 0) / 10) });
   }
-  return { y, m, d, seed, ming, years, decades, period: "year", sel: null };
+  // 高峰（標在曲線上）
+  const cands = [];
+  for (let i = 3; i < 88; i++) {
+    const c = years[i].c;
+    if (c >= 62 && c >= years[i-1].c && c >= years[i+1].c && c >= years[i-2].c && c >= years[i+2].c) cands.push(i);
+  }
+  cands.sort((a, b) => years[b].c - years[a].c);
+  const peaks = [];
+  for (const p of cands) { if (peaks.every(q => Math.abs(q - p) > 10)) peaks.push(p); if (peaks.length >= 3) break; }
+  return { y, m, d, seed, ming, years, decades, peaks, view: "curve", decSel: null, sel: null };
 }
-function lifeData() { return LIFE.period === "year" ? LIFE.years : LIFE.decades; }
+function smoothLine(x, pts) {
+  x.beginPath();
+  x.moveTo(pts[0].x, pts[0].y);
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
+    x.bezierCurveTo(
+      p1.x + (p2.x - p0.x) / 6, p1.y + (p2.y - p0.y) / 6,
+      p2.x - (p3.x - p1.x) / 6, p2.y - (p3.y - p1.y) / 6,
+      p2.x, p2.y);
+  }
+}
 function drawLife() {
   if (!LIFE) return;
   const cv = $("lifeCanvas");
   const dpr = window.devicePixelRatio || 1;
-  const W = cv.clientWidth, H = 340;
+  const W = cv.clientWidth, H = 360;
   if (!W) return;
   cv.width = W * dpr; cv.height = H * dpr;
   const x = cv.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const data = lifeData();
-  const padL = 6, padR = 6, padT = 14, padB = 30, volH = 52;
+  if (LIFE.view === "curve") drawCurve(x, W, H);
+  else if (LIFE.view === "dec") drawDec(x, W, H);
+  else drawYears(x, W, H);
+}
+function drawCurve(x, W, H) {
+  const padL = 12, padR = 12, padT = 34, padB = 36;
+  const py = v => padT + (100 - v) / 100 * (H - padT - padB);
+  const px = i => padL + i / 90 * (W - padL - padR);
+  const pts = LIFE.years.map((d, i) => ({ x: px(i), y: py(d.c) }));
+  // 淡網格
+  x.strokeStyle = "#ece4cf"; x.lineWidth = 1;
+  [25, 50, 75].forEach(v => { x.beginPath(); x.moveTo(padL, py(v)); x.lineTo(W - padR, py(v)); x.stroke(); });
+  // 山水填色
+  const gr = x.createLinearGradient(0, padT, 0, H - padB);
+  gr.addColorStop(0, "rgba(176,58,46,.16)"); gr.addColorStop(1, "rgba(176,58,46,0)");
+  smoothLine(x, pts);
+  x.lineTo(pts[90].x, H - padB); x.lineTo(pts[0].x, H - padB); x.closePath();
+  x.fillStyle = gr; x.fill();
+  // 曲線
+  smoothLine(x, pts);
+  x.strokeStyle = "#b03a2e"; x.lineWidth = 2.6; x.lineJoin = "round"; x.stroke();
+  // 高峰標註
+  x.textAlign = "center"; x.font = "12px serif";
+  LIFE.peaks.forEach(p => {
+    const d = LIFE.years[p];
+    x.fillStyle = "#b03a2e";
+    x.beginPath(); x.arc(px(p), py(d.c), 4.5, 0, 7); x.fill();
+    x.fillStyle = "#8a8474";
+    x.fillText(`${p}歲・${d.g.name}`, px(p), py(d.c) - 12);
+  });
+  // 「今」標記
+  const nowA = Math.max(0, Math.min(90, new Date().getFullYear() - LIFE.y));
+  x.strokeStyle = "#b03a2e"; x.setLineDash([5, 4]); x.lineWidth = 1.2;
+  x.beginPath(); x.moveTo(px(nowA), padT - 6); x.lineTo(px(nowA), H - padB); x.stroke(); x.setLineDash([]);
+  x.fillStyle = "#b03a2e";
+  const tw = 30;
+  const bx = Math.min(Math.max(px(nowA) - tw / 2, padL), W - padR - tw);
+  x.beginPath(); x.roundRect(bx, 2, tw, 22, 5); x.fill();
+  x.fillStyle = "#fff"; x.font = "13px serif";
+  x.fillText("今", bx + tw / 2, 18);
+  // 選中年
+  if (LIFE.sel != null) {
+    const d = LIFE.years[LIFE.sel];
+    x.fillStyle = "#1e3a2f";
+    x.beginPath(); x.arc(px(LIFE.sel), py(d.c), 5.5, 0, 7); x.fill();
+    x.fillStyle = "#fff";
+    x.beginPath(); x.arc(px(LIFE.sel), py(d.c), 2.2, 0, 7); x.fill();
+  }
+  // X 軸
+  x.fillStyle = "#8a8474"; x.font = "11px serif";
+  for (let a = 0; a <= 90; a += 10) x.fillText(a + "歲", px(a), H - 12);
+  LIFE._geom = { kind: "curve", padL, padR, W };
+}
+function drawKBase(x, W, H, data, labels) {
+  const padL = 8, padR = 8, padT = 16, padB = 34, volH = 46;
   const priceH = H - padT - padB - volH - 8;
   const py = v => padT + (100 - v) / 100 * priceH;
-  const n = data.length, step = (W - padL - padR) / n, cw = Math.max(1.5, step * 0.62);
-  x.strokeStyle = "#e7dfc9"; x.lineWidth = 1;
-  [0, 25, 50, 75, 100].forEach(v => { x.beginPath(); x.moveTo(padL, py(v)); x.lineTo(W - padR, py(v)); x.stroke(); });
-  x.fillStyle = "#8a8474"; x.font = "11px serif"; x.textAlign = "center";
-  data.forEach((d, i) => {
-    const lbl = LIFE.period === "year" ? (d.age % 10 === 0 ? d.age + "歲" : null) : d.label;
-    if (lbl) x.fillText(lbl, padL + step * (i + 0.5), H - 10);
-  });
+  const n = data.length, step = (W - padL - padR) / n, cw = Math.max(4, step * 0.55);
+  x.strokeStyle = "#ece4cf"; x.lineWidth = 1;
+  [0, 50, 100].forEach(v => { x.beginPath(); x.moveTo(padL, py(v)); x.lineTo(W - padR, py(v)); x.stroke(); });
   const vmax = Math.max(...data.map(d => d.moving), 1);
   data.forEach((d, i) => {
     const cx = padL + step * (i + 0.5);
     const col = d.c >= d.o ? "#b03a2e" : "#2f5d43";
-    x.strokeStyle = col; x.fillStyle = col; x.lineWidth = Math.max(1, cw * 0.3);
+    x.strokeStyle = col; x.fillStyle = col; x.lineWidth = Math.max(1.2, cw * 0.3);
     x.beginPath(); x.moveTo(cx, py(d.h)); x.lineTo(cx, py(d.l)); x.stroke();
     const yO = py(d.o), yC = py(d.c);
-    x.fillRect(cx - cw / 2, Math.min(yO, yC), cw, Math.max(1.5, Math.abs(yC - yO)));
-    x.globalAlpha = 0.3;
-    const vh = d.moving / vmax * volH;
-    x.fillRect(cx - cw / 2, H - padB - vh, cw, vh);
+    x.fillRect(cx - cw / 2, Math.min(yO, yC), cw, Math.max(2, Math.abs(yC - yO)));
+    x.globalAlpha = 0.28;
+    x.fillRect(cx - cw / 2, H - padB - d.moving / vmax * volH, cw, d.moving / vmax * volH);
     x.globalAlpha = 1;
   });
-  if (LIFE.period === "year") {
-    x.strokeStyle = "#b98a2f"; x.lineWidth = 1.6; x.beginPath();
-    LIFE.years.forEach((d, i) => { const cx = padL + step * (i + 0.5); i ? x.lineTo(cx, py(d.ma)) : x.moveTo(cx, py(d.ma)); });
-    x.stroke();
-  }
-  if (LIFE.sel != null && data[LIFE.sel]) {
-    const cx = padL + step * (LIFE.sel + 0.5);
-    x.strokeStyle = "#1e3a2f"; x.setLineDash([4, 3]); x.lineWidth = 1;
-    x.beginPath(); x.moveTo(cx, padT); x.lineTo(cx, H - padB); x.stroke(); x.setLineDash([]);
-  }
-  LIFE._geom = { padL, step, n };
+  x.fillStyle = "#8a8474"; x.font = "11px serif"; x.textAlign = "center";
+  labels.forEach((lbl, i) => { if (lbl) x.fillText(lbl, padL + step * (i + 0.5), H - 12); });
+  return { padL, step, n };
+}
+function drawDec(x, W, H) {
+  LIFE._geom = { kind: "dec", ...drawKBase(x, W, H, LIFE.decades, LIFE.decades.map(d => d.label)) };
+}
+function drawYears(x, W, H) {
+  const seg = LIFE.years.slice(LIFE.decSel * 10, LIFE.decSel * 10 + 10);
+  const g = drawKBase(x, W, H, seg, seg.map(d => d.age + "歲"));
+  // MA5
+  const padT = 16, priceH = H - padT - 34 - 46 - 8;
+  const py = v => padT + (100 - v) / 100 * priceH;
+  x.strokeStyle = "#b98a2f"; x.lineWidth = 1.6; x.beginPath();
+  seg.forEach((d, i) => { const cx = g.padL + g.step * (i + 0.5); i ? x.lineTo(cx, py(d.ma)) : x.moveTo(cx, py(d.ma)); });
+  x.stroke();
+  LIFE._geom = { kind: "years", ...g };
 }
 function buildLifeSel() {
   const sel = $("lifeYearSel");
-  const data = lifeData();
-  sel.innerHTML = data.map((d, i) => {
-    const t = LIFE.period === "year" ? `${d.age}歲・${d.year}年` : `${d.label}（${LIFE.y + d.age0}年起）`;
-    return `<option value="${i}">${t}</option>`;
-  }).join("");
-  sel.onchange = () => selectLife(Number(sel.value));
+  let opts;
+  if (LIFE.view === "dec") {
+    opts = LIFE.decades.map((d, j) => `<option value="d${j}">${d.label}（${LIFE.y + d.age0}年起）</option>`);
+  } else {
+    const list = LIFE.view === "curve" ? LIFE.years : LIFE.years.slice(LIFE.decSel * 10, LIFE.decSel * 10 + 10);
+    opts = list.map(d => `<option value="${d.age}">${d.age}歲・${d.year}年</option>`);
+  }
+  sel.innerHTML = opts.join("");
+  sel.onchange = () => {
+    const v = sel.value;
+    if (v[0] === "d") drillDec(Number(v.slice(1)));
+    else selectLife(Number(v));
+  };
+}
+function drillDec(j) {
+  LIFE.view = "years"; LIFE.decSel = j;
+  document.querySelectorAll("#lifeSwitch button").forEach(x => x.classList.toggle("on", x.dataset.v === "dec"));
+  $("lifeBack").style.display = "";
+  buildLifeSel();
+  selectLife(j * 10 + 5);
 }
 function selectLife(i) {
   LIFE.sel = i;
-  const d = lifeData()[i];
+  const d = LIFE.years[i];
   if (!d) return;
-  $("lifeYearSel").value = String(i);
+  if (LIFE.view !== "dec") $("lifeYearSel").value = String(i);
   const g = d.g;
-  const title = LIFE.period === "year" ? `${d.age}歲・${d.year}年` : `${d.label}・${LIFE.y + d.age0}年起`;
-  $("lifeInfo").innerHTML = `<div class="yr">${title}</div>
+  $("lifeInfo").innerHTML = `<div class="yr">${d.age}歲・${d.year}年</div>
     <div class="gname">第${g.n}卦・${g.name}</div>
     <div>${esc(g.guaci)}</div>
     <div style="color:var(--ink2);font-size:.85rem;">${d.moving > 0 ? "動盪 " + d.moving + " 爻" : "平穩無動爻"}・運勢 ${d.c}</div>`;
@@ -614,24 +700,43 @@ function lifeGo() {
   const mg = LIFE.ming;
   $("lifeMing").innerHTML = `你的命卦：<b>第${mg.n}卦・${mg.name}</b>${guaLinesHTML(mg.name, null, true)}<div style="color:var(--ink2);font-size:.85rem;">${esc(mg.guaci)}</div>`;
   ["lifeSwitch", "lifeCanvas", "lifePick", "lifeInfo"].forEach(id => $(id).style.display = "");
+  $("lifeBack").style.display = "none";
+  document.querySelectorAll("#lifeSwitch button").forEach(x => x.classList.toggle("on", x.dataset.v === "curve"));
   buildLifeSel();
-  const nowA = Math.max(0, Math.min(90, new Date().getFullYear() - yy));
-  selectLife(LIFE.period === "year" ? nowA : Math.floor(nowA / 10));
+  selectLife(Math.max(0, Math.min(90, new Date().getFullYear() - yy)));
 }
 $("lifeGo").addEventListener("click", lifeGo);
 document.querySelectorAll("#lifeSwitch button").forEach(b => b.onclick = () => {
   if (!LIFE) return;
+  LIFE.view = b.dataset.v;
   document.querySelectorAll("#lifeSwitch button").forEach(x => x.classList.toggle("on", x === b));
-  LIFE.period = b.dataset.p;
+  $("lifeBack").style.display = "none";
   buildLifeSel();
-  const nowA = Math.max(0, Math.min(90, new Date().getFullYear() - LIFE.y));
-  selectLife(LIFE.period === "year" ? nowA : Math.floor(nowA / 10));
+  drawLife();
+});
+$("lifeBack").addEventListener("click", () => {
+  if (!LIFE) return;
+  LIFE.view = "dec";
+  document.querySelectorAll("#lifeSwitch button").forEach(x => x.classList.toggle("on", x.dataset.v === "dec"));
+  $("lifeBack").style.display = "none";
+  buildLifeSel();
+  drawLife();
 });
 $("lifeCanvas").addEventListener("click", e => {
   if (!LIFE || !LIFE._geom) return;
   const r = $("lifeCanvas").getBoundingClientRect();
-  const i = Math.floor((e.clientX - r.left - LIFE._geom.padL) / LIFE._geom.step);
-  if (i >= 0 && i < LIFE._geom.n) selectLife(i);
+  const gm = LIFE._geom;
+  const x = e.clientX - r.left;
+  if (gm.kind === "curve") {
+    const i = Math.round((x - gm.padL) / (gm.W - gm.padL - gm.padR) * 90);
+    if (i >= 0 && i <= 90) selectLife(i);
+  } else if (gm.kind === "dec") {
+    const j = Math.floor((x - gm.padL) / gm.step);
+    if (j >= 0 && j < 9) drillDec(j);
+  } else {
+    const k = Math.floor((x - gm.padL) / gm.step);
+    if (k >= 0 && k < 10) selectLife(LIFE.decSel * 10 + k);
+  }
 });
 let _lrzT = null;
 window.addEventListener("resize", () => { clearTimeout(_lrzT); _lrzT = setTimeout(drawLife, 200); });

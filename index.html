@@ -323,17 +323,18 @@ header.top{position:relative;}
 
 <section class="card lifecard">
   <h2><span class="vol">卷五</span><span class="t">人生運勢圖</span></h2>
-  <div class="hint">輸入生日，以生日為種子起命卦，排出 0–90 歲的運勢 K 線。像看股票一樣，看自己的人生。</div>
+  <div class="hint">輸入生日，起命卦，看人生的山水：曲線是運勢起伏，點進去看十年大運。</div>
   <div class="life-input">
     <input type="date" id="birthDate">
     <button id="lifeGo" class="btn" style="margin:0;width:auto;padding:10px 22px;letter-spacing:.1em;text-indent:0;">排出命盤</button>
   </div>
   <div id="lifeMing" class="life-ming"></div>
   <div class="life-switch" id="lifeSwitch" style="display:none;">
-    <button data-p="year" class="on">年 K</button>
-    <button data-p="dec">十年運 K</button>
+    <button data-v="curve" class="on">運勢曲線</button>
+    <button data-v="dec">十年運K</button>
   </div>
-  <canvas id="lifeCanvas" height="340" style="display:none;"></canvas>
+  <button id="lifeBack" class="btn ghost" style="display:none;margin:0 0 10px;width:auto;padding:8px 18px;font-size:.85rem;">← 返回十年運K</button>
+  <canvas id="lifeCanvas" height="360" style="display:none;"></canvas>
   <div class="life-pick" id="lifePick" style="display:none;"><select id="lifeYearSel"></select></div>
   <div id="lifeInfo" class="life-info" style="display:none;"></div>
   <div class="hint" style="margin-top:14px;">人生運勢圖為本站自創的娛樂模型（以生日為種子起卦），非古法占斷，僅供參考，非投資建議。生日只存在你的瀏覽器，不會上傳。</div>
