@@ -413,9 +413,7 @@ if (cur.ai && cur.ai.jianyi) {
 }
 x.fillStyle = "#8a8474"; x.font = "24px serif";
 x.fillText("易問・觀變玩占", W / 2, H - 78);
-const a = document.createElement("a");
-a.download = `易問_${cur.ben.name}.png`;
-a.href = c.toDataURL("image/png"); a.click();
+showCardPreview(c.toDataURL("image/png"), `易問_${cur.ben.name}.png`);
 }
 
 /* ---------- v3：每日一卦 ---------- */
@@ -514,6 +512,30 @@ $("goAI").addEventListener("click", goAI);
   if (q.get("login") === "fail") { toast("登入失敗，請再試一次"); history.replaceState(null, "", location.pathname); }
   if (q.get("paid") === "1") { toast("付款成功，額度已入帳"); history.replaceState(null, "", location.pathname); setTimeout(() => loadMe(), 1500); }
 })();
+/* ---------- 圖卡預覽 ---------- */
+function showCardPreview(dataURL, filename) {
+  let m = $("cardModal");
+  if (!m) {
+    m = document.createElement("div");
+    m.id = "cardModal";
+    m.innerHTML = `<div class="cardmodal-bg"></div><div class="cardmodal-box">
+      <img id="cardModalImg" alt="圖卡預覽">
+      <div class="cardmodal-actions">
+        <a id="cardModalDl" class="btn" target="_blank" rel="noopener">下載圖片</a>
+        <button id="cardModalClose" class="btn ghost">關閉</button>
+      </div>
+      <div class="hint">長按圖片也可直接儲存到相簿</div>
+    </div>`;
+    document.body.appendChild(m);
+    m.querySelector(".cardmodal-bg").onclick = closeCardModal;
+    m.querySelector("#cardModalClose").onclick = closeCardModal;
+  }
+  $("cardModalImg").src = dataURL;
+  const dl = $("cardModalDl");
+  dl.href = dataURL; dl.download = filename;
+  m.classList.add("open");
+}
+function closeCardModal() { const m = $("cardModal"); if (m) m.classList.remove("open"); }
 $("shareBtn").addEventListener("click", shareCard);
 document.addEventListener("click", e => {
   const p = $("authPanel");
