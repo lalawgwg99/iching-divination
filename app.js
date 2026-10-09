@@ -867,6 +867,21 @@ window.addEventListener("resize", () => { clearTimeout(_lrzT); _lrzT = setTimeou
   if (v && $("birthDate")) { $("birthDate").value = v; }
 })();
 
+/* ---------- 專題模板 ---------- */
+const TOPIC_TPL = {
+"求職": "我該不該接受＿＿公司的 offer？職位是＿＿，年薪＿＿萬，我最猶豫的是＿＿。",
+"感情": "我跟＿＿目前的狀態是＿＿，讓我在意的是＿＿，該繼續還是放手？",
+"創業": "我想做＿＿（項目），預計投入＿＿萬，現在最大的不確定是＿＿，時機對嗎？",
+"考試": "＿＿考試在＿＿月登場，我目前的準備程度是＿＿，該把力氣放在哪裡？",
+"人際": "我跟＿＿（同事／朋友／家人）最近＿＿，我想＿＿，怎麼做比較好？",
+"抉擇": "我在「＿＿」和「＿＿」之間猶豫，考量的是＿＿，該怎麼選？"
+};
+let curTopic = "";
+document.querySelectorAll("#topics button").forEach(b => b.onclick = () => {
+document.querySelectorAll("#topics button").forEach(x => x.classList.toggle("on", x === b));
+curTopic = b.dataset.t;
+$("q").value = TOPIC_TPL[curTopic];
+});
 $("q").addEventListener("input", () => {
 curTopic = "";
 document.querySelectorAll("#topics button").forEach(x => x.classList.remove("on"));
