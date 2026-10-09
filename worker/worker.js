@@ -301,6 +301,32 @@ export default {
       return new Response("1|OK");
     }
 
+    /* ===== 追問 ===== */
+    if (path === "/divine/follow" && req.method === "POST") {
+      try {
+        const b = await req.json();
+        const uid = await verifySession(env, getCookie(req, "yiwen_sess"));
+        if (uid) {
+          const q = await consumeQuota(env, uid);
+          if (!q.ok) return json(req, { error: "quota_exhausted" }, 402);
+        }
+        const hist = (b.history || []).slice(-6).map(h => (h.role === "user" ? "問" : "答") + "：" + h.text).join("\n");
+        const topic = b.topic ? `\n問事領域：${b.topic}` : "";
+        const messages = [
+          { role: "system", content: "你是「易問」的解卦師，精通《周易》。針對使用者的追問，用台灣繁體中文、白話但典雅的語氣回答（2-5句），緊扣原本的卦象與先前的解卦，不要重複整段解卦內容。不可鐵口直斷吉凶禍福，不可給醫療、法律、投資買賣點等專業建議。只輸出回答文字，不要輸出 JSON。全文一律繁體中文（台灣用法），嚴禁簡體字。" },
+          { role: "user", content: `原問事：${b.question}${topic}\n本卦：第${b.benGua.n}卦 ${b.benGua.name}；之卦：第${b.zhiGua.n}卦 ${b.zhiGua.name}\n先前建議：${b.prev || ""}${hist ? "\n先前追問：\n" + hist : ""}\n本次追問：${b.follow}` },
+        ];
+        let txt = await callAI(env, messages);
+        if (SIMP_RE.test(txt)) {
+          messages.push({ role: "user", content: "請將上述內容全部改寫為繁體中文（台灣用法），嚴禁簡體字。" });
+          txt = await callAI(env, messages);
+        }
+        return json(req, { answer: txt.slice(0, 1500) });
+      } catch (e) {
+        return json(req, { error: "divine_failed" }, 500);
+      }
+    }
+
     /* ===== AI 解卦 ===== */
     if (path === "/divine" && req.method === "POST") {
       try {
@@ -313,7 +339,8 @@ export default {
         }
         const moving = (b.moving || []).map(m =>
           `變爻${m.label}：本卦「${m.ben}」→之卦${m.zhiLabel}「${m.zhi}」`).join("；") || "無變爻";
-        const user = `問事：${b.question}\n本卦：第${b.benGua.n}卦 ${b.benGua.name}，卦辭「${b.benGua.guaci}」，白話「${b.benGua.baihua}」\n${moving}\n之卦：第${b.zhiGua.n}卦 ${b.zhiGua.name}，卦辭「${b.zhiGua.guaci}」，白話「${b.zhiGua.baihua}」\n請依以上起卦結果解卦，只輸出 JSON。`;
+        const topic = b.topic ? `\n問事領域：${b.topic}（請多從該領域角度切入）` : "";
+        const user = `問事：${b.question}${topic}\n本卦：第${b.benGua.n}卦 ${b.benGua.name}，卦辭「${b.benGua.guaci}」，白話「${b.benGua.baihua}」\n${moving}\n之卦：第${b.zhiGua.n}卦 ${b.zhiGua.name}，卦辭「${b.zhiGua.guaci}」，白話「${b.zhiGua.baihua}」\n請依以上起卦結果解卦，只輸出 JSON。`;
         const messages = [
           { role: "system", content: SYS },
           { role: "user", content: user },

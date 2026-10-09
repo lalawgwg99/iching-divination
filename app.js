@@ -85,6 +85,8 @@ fetch("data/baihua.json").then(r => r.json()).catch(() => ({})),
 ]);
 GUA = g; SYM = s; BH = b;
 buildPick(); renderHist(); renderQuota(); renderDaily();
+const _due = getHist().filter(x => !x.rv && Date.now() - x.at >= RV_DUE).length;
+if (_due > 0) setTimeout(() => toast(`有 ${_due} 卦可以寫覆盤了`), 2600);
 const yr = $("year"); if (yr) yr.textContent = new Date().getFullYear();
 }
 const byName = n => GUA.find(g => g.name === n);
@@ -157,6 +159,7 @@ $("q").placeholder = mode === "pick" ? "查卦不用寫問題，直接選卦即�
 function buildPick() { renderModeExtra();}
 
 function doDivine() {
+$("followWrap").style.display = "none";
 let q = $("q").value.trim();
 if (!q) {
 if (mode === "pick") { q = `我想了解「${$("pickSel").value}」卦`; }
@@ -313,7 +316,7 @@ const moving = yaos.map((y, i) => y.moving? { label: y.label, ben: ben.yao[i].te
 const r = await fetch(API_BASE + "/divine", {
 method: "POST", credentials: "include", headers: { "Content-Type": "application/json"},
 body: JSON.stringify({
-question,
+question, topic: curTopic,
 benGua: { name: ben.name, n: ben.n, guaci: ben.guaci, baihua: bhOf(ben.name)},
 moving, zhiGua: { name: zhi.name, n: zhi.n, guaci: zhi.guaci, baihua: bhOf(zhi.name)}
 })
@@ -326,6 +329,7 @@ if (r.status === 402) {
 if (!r.ok) throw new Error("服務暫時忙線中（" + r.status + "）");
 const d = await r.json();
 if (ME && ME.loggedIn) { loadMe(); } else { useQuota(); }
+resetFollow();
 const blocks = [["現況", d.xiankuang], ["變數", d.bianhua], ["建議", d.jianyi], ["提醒", d.tixing]];
 $("aiOut").innerHTML = `<div class="ai-sec">` + blocks.map((b, i) =>
 `<div class="ai-block" style="animation-delay:${(i * 0.12).toFixed(2)}s"><h3>${b[0]}</h3><p>${esc(b[1])}</p></div>`).join("") + `<div class="closing">卦已觀畢，心中有數<br><span>決定，永遠在你手上。</span></div></div>`;
@@ -345,15 +349,123 @@ const esc = s => String(s == null? "": s).replace(/[&<>"]/g, c => ({ "&": "&amp;
 function saveHist() {
 let h = []; try { h = JSON.parse(localStorage.getItem("yiwen_hist") || "[]");} catch {}
 h.unshift({ q: cur.question, ben: cur.ben.name, zhi: cur.zhi.name, at: cur.at, ai: cur.ai || null});
-localStorage.setItem("yiwen_hist", JSON.stringify(h.slice(0, 30)));
+setHist(h);
 renderHist();
 }
+/* ---------- 覆盤回顧 ---------- */
+const RV_DUE = 30 * 86400 * 1000;
+const RV_LABEL = { hit: "應驗了", part: "部分應驗", miss: "沒發生", pending: "還在發展中" };
+function getHist() { try { return JSON.parse(localStorage.getItem("yiwen_hist") || "[]");} catch { return []; } }
+function setHist(h) { localStorage.setItem("yiwen_hist", JSON.stringify(h.slice(0, 30))); }
 function renderHist() {
-let h = []; try { h = JSON.parse(localStorage.getItem("yiwen_hist") || "[]");} catch {}
+const h = getHist();
 if (!h.length) return;
 $("histCard").style.display = "";
-$("histList").innerHTML = h.map((x) => `<div class="hist-item${x.ai ? " solved" : ""}"><span class="t">${new Date(x.at).toLocaleString("zh-TW")}</span><b>${guaLinesHTML(x.ben, null, true)} ${x.ben}</b> → ${x.zhi}<br><span style="color:var(--ink2);font-size:.88rem;">${esc(x.q.slice(0, 40))}</span></div>`).join("");
+const now = Date.now();
+const reviewed = h.filter(x => x.rv);
+const hit = reviewed.filter(x => x.rv.r === "hit").length;
+const stat = reviewed.length ? `<div class="rv-stat">已覆盤 ${reviewed.length} 卦・${hit} 卦應驗</div>` : "";
+$("histList").innerHTML = stat + h.map((x, i) => {
+let act;
+if (x.rv) act = `<span class="rv-badge ${x.rv.r}">${RV_LABEL[x.rv.r]}</span>`;
+else if (now - x.at >= RV_DUE) act = `<button class="rv-btn" onclick="openReview(${i})">寫覆盤</button>`;
+else act = `<span class="rv-wait">${Math.ceil((RV_DUE - (now - x.at)) / 86400000)}天後可覆盤</span>`;
+return `<div class="hist-item${x.ai ? " solved" : ""}"><span class="t">${new Date(x.at).toLocaleString("zh-TW")}</span><b>${guaLinesHTML(x.ben, null, true)} ${x.ben}</b> → ${x.zhi}<br><span style="color:var(--ink2);font-size:.88rem;">${esc(x.q.slice(0, 40))}</span><div style="margin-top:6px;">${act}</div></div>`;
+}).join("");
 }
+let _rvIdx = null;
+function openReview(i) {
+_rvIdx = i;
+let m = $("rvModal");
+if (!m) {
+m = document.createElement("div");
+m.id = "rvModal";
+m.innerHTML = `<div class="cardmodal-bg"></div><div class="cardmodal-box" style="text-align:left;">
+<div style="font-size:1.05rem;letter-spacing:.12em;margin-bottom:4px;">覆盤這一卦</div>
+<div class="hint">後來事情怎麼發展？誠實面對，卦才會越看越準。</div>
+<div class="rv-opts">${Object.keys(RV_LABEL).map(k => `<button data-r="${k}">${RV_LABEL[k]}</button>`).join("")}</div>
+<input id="rvNote" placeholder="一句話心得（可不填）" style="width:100%;box-sizing:border-box;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:.95rem;font-family:inherit;margin-top:10px;background:#fffdf8;">
+<div class="cardmodal-actions"><button id="rvSubmit" class="btn">送出覆盤</button><button id="rvClose" class="btn ghost">取消</button></div>
+</div>`;
+document.body.appendChild(m);
+m.querySelector(".cardmodal-bg").onclick = closeReview;
+m.querySelector("#rvClose").onclick = closeReview;
+m.querySelector("#rvOpts") || m.querySelector(".rv-opts").addEventListener("click", e => {
+const b = e.target.closest("button"); if (!b) return;
+m.querySelectorAll(".rv-opts button").forEach(x => x.classList.toggle("on", x === b));
+});
+m.querySelector("#rvSubmit").onclick = submitReview;
+}
+m.querySelectorAll(".rv-opts button").forEach(x => x.classList.remove("on"));
+m.querySelector("#rvNote").value = "";
+m.classList.add("open");
+}
+function closeReview() { const m = $("rvModal"); if (m) m.classList.remove("open"); }
+function submitReview() {
+const m = $("rvModal");
+const sel = m.querySelector(".rv-opts button.on");
+if (!sel) { toast("先選一個結果"); return; }
+const h = getHist();
+if (!h[_rvIdx]) return;
+h[_rvIdx].rv = { at: Date.now(), r: sel.dataset.r, note: m.querySelector("#rvNote").value.trim().slice(0, 100) };
+setHist(h); closeReview(); renderHist();
+toast("覆盤完成");
+}
+
+/* ---------- 追問 ---------- */
+let followHist = [], followLeft = 3;
+function resetFollow() {
+followHist = []; followLeft = 3;
+$("followList").innerHTML = ""; $("followQ").value = "";
+$("followWrap").style.display = "";
+renderFollowHint();
+}
+function renderFollowHint() {
+$("followHint").textContent = followLeft > 0 ? `還能追問 ${followLeft} 次（每次消耗 1 次額度）` : "這卦追問到這裡囉，再問一卦吧";
+}
+async function sendFollow() {
+const q = $("followQ").value.trim();
+if (!q || !cur || !cur.ai) return;
+if (followLeft <= 0) { alert("這卦追問到這裡囉"); return; }
+const logged = ME && ME.loggedIn;
+if (!logged && quotaLeft() <= 0) { alert("本月免費額度用完囉"); return; }
+const btn = $("followBtn");
+btn.disabled = true;
+$("followList").innerHTML += `<div class="f-q">追問：${esc(q)}</div><div class="f-a">參詳中…</div>`;
+$("followQ").value = "";
+try {
+const r = await fetch(API_BASE + "/divine/follow", {
+method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+body: JSON.stringify({
+question: cur.question, topic: curTopic,
+benGua: { name: cur.ben.name, n: cur.ben.n }, zhiGua: { name: cur.zhi.name, n: cur.zhi.n },
+prev: cur.ai.jianyi || "", history: followHist, follow: q
+})
+});
+if (r.status === 402) {
+$("followList").innerHTML += `<div class="f-a">免費額度用完了，升級繼續問：</div>` + plansHTML();
+btn.disabled = false; return;
+}
+if (!r.ok) throw new Error("busy");
+const d = await r.json();
+followHist.push({ role: "user", text: q }, { role: "ai", text: d.answer });
+followLeft--;
+if (logged) loadMe(); else useQuota();
+renderFollow();
+} catch (e) {
+$("followList").innerHTML += `<div class="f-a">服務暫時忙線中，請稍後再試。</div>`;
+}
+btn.disabled = false;
+}
+function renderFollow() {
+let h = "";
+for (let i = 0; i < followHist.length; i += 2)
+h += `<div class="f-q">追問：${esc(followHist[i].text)}</div><div class="f-a">${esc(followHist[i + 1].text)}</div>`;
+$("followList").innerHTML = h;
+renderFollowHint();
+}
+$("followBtn").addEventListener("click", sendFollow);
+$("followQ").addEventListener("keydown", e => { if (e.key === "Enter") sendFollow(); });
 
 /* ---------- 分享圖卡 ---------- */
 function shareCard() {
@@ -755,6 +867,10 @@ window.addEventListener("resize", () => { clearTimeout(_lrzT); _lrzT = setTimeou
   if (v && $("birthDate")) { $("birthDate").value = v; }
 })();
 
+$("q").addEventListener("input", () => {
+curTopic = "";
+document.querySelectorAll("#topics button").forEach(x => x.classList.remove("on"));
+});
 $("goDivine").addEventListener("click", doDivine);
 $("goAI").addEventListener("click", goAI);
 (function handleReturn() {
