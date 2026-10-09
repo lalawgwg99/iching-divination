@@ -536,15 +536,22 @@ function buildLife(y, m, d) {
       h: Math.max(...seg.map(s => s.h)), l: Math.min(...seg.map(s => s.l)),
       g: seg[5].g, moving: Math.round(seg.reduce((s, x) => s + x.moving, 0) / 10) });
   }
-  // 高峰（標在曲線上）
+  // 平滑運勢（三角核寬 9，畫曲線用；c 保留原始值供明細）
+  const KW = [1, 2, 3, 4, 5, 4, 3, 2, 1], KS = 25;
+  years.forEach((yr, i) => {
+    let s = 0;
+    for (let k = -4; k <= 4; k++) s += years[Math.max(0, Math.min(90, i + k))].c * KW[k + 4];
+    yr.sc = Math.round(s / KS);
+  });
+  // 高峰（標在曲線上，用平滑值）
   const cands = [];
-  for (let i = 3; i < 88; i++) {
-    const c = years[i].c;
-    if (c >= 62 && c >= years[i-1].c && c >= years[i+1].c && c >= years[i-2].c && c >= years[i+2].c) cands.push(i);
+  for (let i = 4; i < 87; i++) {
+    const c = years[i].sc;
+    if (c >= 58 && c >= years[i-1].sc && c >= years[i+1].sc) cands.push(i);
   }
-  cands.sort((a, b) => years[b].c - years[a].c);
+  cands.sort((a, b) => years[b].sc - years[a].sc);
   const peaks = [];
-  for (const p of cands) { if (peaks.every(q => Math.abs(q - p) > 10)) peaks.push(p); if (peaks.length >= 3) break; }
+  for (const p of cands) { if (peaks.every(q => Math.abs(q - p) > 12)) peaks.push(p); if (peaks.length >= 3) break; }
   return { y, m, d, seed, ming, years, decades, peaks, view: "curve", decSel: null, sel: null };
 }
 function smoothLine(x, pts) {
@@ -574,7 +581,7 @@ function drawCurve(x, W, H) {
   const padL = 12, padR = 12, padT = 34, padB = 36;
   const py = v => padT + (100 - v) / 100 * (H - padT - padB);
   const px = i => padL + i / 90 * (W - padL - padR);
-  const pts = LIFE.years.map((d, i) => ({ x: px(i), y: py(d.c) }));
+  const pts = LIFE.years.map((d, i) => ({ x: px(i), y: py(d.sc) }));
   // 淡網格
   x.strokeStyle = "#ece4cf"; x.lineWidth = 1;
   [25, 50, 75].forEach(v => { x.beginPath(); x.moveTo(padL, py(v)); x.lineTo(W - padR, py(v)); x.stroke(); });
@@ -592,9 +599,9 @@ function drawCurve(x, W, H) {
   LIFE.peaks.forEach(p => {
     const d = LIFE.years[p];
     x.fillStyle = "#b03a2e";
-    x.beginPath(); x.arc(px(p), py(d.c), 4.5, 0, 7); x.fill();
+    x.beginPath(); x.arc(px(p), py(d.sc), 4.5, 0, 7); x.fill();
     x.fillStyle = "#8a8474";
-    x.fillText(`${p}歲・${d.g.name}`, px(p), py(d.c) - 12);
+    x.fillText(`${p}歲・${d.g.name}`, px(p), py(d.sc) - 12);
   });
   // 「今」標記
   const nowA = Math.max(0, Math.min(90, new Date().getFullYear() - LIFE.y));
@@ -610,9 +617,9 @@ function drawCurve(x, W, H) {
   if (LIFE.sel != null) {
     const d = LIFE.years[LIFE.sel];
     x.fillStyle = "#1e3a2f";
-    x.beginPath(); x.arc(px(LIFE.sel), py(d.c), 5.5, 0, 7); x.fill();
+    x.beginPath(); x.arc(px(LIFE.sel), py(d.sc), 5.5, 0, 7); x.fill();
     x.fillStyle = "#fff";
-    x.beginPath(); x.arc(px(LIFE.sel), py(d.c), 2.2, 0, 7); x.fill();
+    x.beginPath(); x.arc(px(LIFE.sel), py(d.sc), 2.2, 0, 7); x.fill();
   }
   // X 軸
   x.fillStyle = "#8a8474"; x.font = "11px serif";
@@ -703,24 +710,27 @@ function lifeGo() {
   $("lifeBack").style.display = "none";
   document.querySelectorAll("#lifeSwitch button").forEach(x => x.classList.toggle("on", x.dataset.v === "curve"));
   buildLifeSel();
-  selectLife(Math.max(0, Math.min(90, new Date().getFullYear() - yy)));
+  selectLife(lifeNowAge());
 }
 $("lifeGo").addEventListener("click", lifeGo);
+const lifeNowAge = () => Math.max(0, Math.min(90, new Date().getFullYear() - LIFE.y));
+const lifeDecHint = () => { $("lifeInfo").innerHTML = `<div style="color:var(--ink2);font-size:.9rem;">點選一根十年 K 線，鑽進去看那十年的年 K。</div>`; };
 document.querySelectorAll("#lifeSwitch button").forEach(b => b.onclick = () => {
   if (!LIFE) return;
   LIFE.view = b.dataset.v;
   document.querySelectorAll("#lifeSwitch button").forEach(x => x.classList.toggle("on", x === b));
   $("lifeBack").style.display = "none";
   buildLifeSel();
-  drawLife();
+  if (LIFE.view === "curve") { LIFE.sel = null; selectLife(lifeNowAge()); }
+  else { LIFE.sel = null; lifeDecHint(); drawLife(); }
 });
 $("lifeBack").addEventListener("click", () => {
   if (!LIFE) return;
-  LIFE.view = "dec";
+  LIFE.view = "dec"; LIFE.sel = null;
   document.querySelectorAll("#lifeSwitch button").forEach(x => x.classList.toggle("on", x.dataset.v === "dec"));
   $("lifeBack").style.display = "none";
   buildLifeSel();
-  drawLife();
+  lifeDecHint(); drawLife();
 });
 $("lifeCanvas").addEventListener("click", e => {
   if (!LIFE || !LIFE._geom) return;
