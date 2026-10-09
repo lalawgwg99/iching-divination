@@ -167,17 +167,52 @@ export default {
           headers: { Authorization: "Bearer " + tk.access_token },
         }).then(r => r.json());
         if (!prof.userId) throw new Error("profile failed");
-        const uid = "line:" + prof.userId;
-        const now = Math.floor(Date.now() / 1000);
-        await env.DB.prepare("INSERT INTO users (id, line_id, name, picture, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, picture = excluded.picture")
-          .bind(uid, prof.userId, prof.displayName || "", prof.pictureUrl || "", now).run();
-        await getEntitlement(env, uid);
-        const sess = await signSession(env, uid);
-        const headers = {
-          "Set-Cookie": sessCookie(sess) + ", yiwen_oauth=; Path=/; Max-Age=0",
-          "Location": FRONTEND + "/?login=ok",
-        };
-        return new Response(null, { status: 302, headers });
+        return await finishLogin("line:" + prof.userId, prof.displayName, prof.pictureUrl);
+      } catch (e) {
+        return new Response(null, { status: 302, headers: { Location: FRONTEND + "/?login=fail" } });
+      }
+    }
+    async function finishLogin(uid, name, picture) {
+      const now = Math.floor(Date.now() / 1000);
+      await env.DB.prepare("INSERT INTO users (id, line_id, name, picture, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET name = excluded.name, picture = excluded.picture")
+        .bind(uid, uid.split(":")[1] || "", name || "", picture || "", now).run();
+      await getEntitlement(env, uid);
+      const sess = await signSession(env, uid);
+      return new Response(null, { status: 302, headers: {
+        "Set-Cookie": sessCookie(sess) + ", yiwen_oauth=; Path=/; Max-Age=0",
+        "Location": FRONTEND + "/?login=ok",
+      }});
+    }
+    if (path === "/auth/google") {
+      if (!env.GOOGLE_CLIENT_ID) return json(req, { error: "not_configured" }, 503);
+      const state = [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, "0")).join("");
+      const q = new URLSearchParams({
+        response_type: "code", client_id: env.GOOGLE_CLIENT_ID,
+        redirect_uri: API_HOST + "/auth/google/callback", state,
+        scope: "openid profile email",
+      });
+      const headers = { ...cors(req), "Set-Cookie": `yiwen_oauth=${state}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=600`, "Location": "https://accounts.google.com/o/oauth2/v2/auth?" + q };
+      return new Response(null, { status: 302, headers });
+    }
+    if (path === "/auth/google/callback") {
+      try {
+        const code = url.searchParams.get("code");
+        const state = url.searchParams.get("state");
+        if (!code || state !== getCookie(req, "yiwen_oauth")) throw new Error("bad state");
+        const tk = await fetch("https://oauth2.googleapis.com/token", {
+          method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            grant_type: "authorization_code", code,
+            redirect_uri: API_HOST + "/auth/google/callback",
+            client_id: env.GOOGLE_CLIENT_ID, client_secret: env.GOOGLE_CLIENT_SECRET,
+          }),
+        }).then(r => r.json());
+        if (!tk.access_token) throw new Error("token failed");
+        const info = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+          headers: { Authorization: "Bearer " + tk.access_token },
+        }).then(r => r.json());
+        if (!info.id) throw new Error("userinfo failed");
+        return await finishLogin("google:" + info.id, info.name, info.picture);
       } catch (e) {
         return new Response(null, { status: 302, headers: { Location: FRONTEND + "/?login=fail" } });
       }

@@ -13,13 +13,33 @@ async function loadMe() {
 function renderAuth() {
   const box = $("authBox");
   if (!ME || !ME.loggedIn) {
-    box.innerHTML = `<button class="line-btn" onclick="location.href=API_BASE+'/auth/line'">用 LINE 登入</button>`;
-    return;
+    box.innerHTML = `<div class="auth-menu">
+      <button class="auth-btn" id="authToggle">登入</button>
+      <div class="auth-panel" id="authPanel">
+        <div class="hint">登入後額度跨裝置同步，<br>也可購買單次包或月訂。</div>
+        <button class="line-btn" onclick="location.href=API_BASE+'/auth/line'">用 LINE 登入</button>
+        <button class="google-btn" onclick="location.href=API_BASE+'/auth/google'">用 Google 登入</button>
+      </div></div>`;
+  } else {
+    const planLbl = ME.plan === "monthly" ? "月訂會員" : "免費會員";
+    let quota;
+    if (ME.plan === "monthly") {
+      quota = `月訂有效期至 ${new Date(ME.expiresAt * 1000).toLocaleDateString("zh-TW")}`;
+    } else {
+      const p = [];
+      if (ME.freeLeft > 0) p.push(`本月免費剩 ${ME.freeLeft} 次`);
+      if (ME.credits > 0) p.push(`單次包剩 ${ME.credits} 次`);
+      quota = p.join("<br>") || "免費額度已用完，可購買方案";
+    }
+    box.innerHTML = `<div class="auth-menu">
+      <button class="auth-btn" id="authToggle">${ME.picture ? `<img src="${ME.picture}" alt="">` : ""}<span>${esc(ME.name || "會員")}</span></button>
+      <div class="auth-panel" id="authPanel">
+        <div class="me-name">${esc(ME.name || "會員")}<span class="plan ${ME.plan}">${planLbl}</span></div>
+        <div class="me-quota">${quota}</div>
+        <a class="logout" href="${API_BASE}/auth/logout">登出</a>
+      </div></div>`;
   }
-  const planLbl = ME.plan === "monthly" ? "月訂會員" : "免費會員";
-  box.innerHTML = `<span class="userchip">${ME.picture ? `<img src="${ME.picture}" alt="">` : ""}
-    <span>${esc(ME.name || "會員")}</span><span class="plan ${ME.plan}">${planLbl}</span>
-    <a href="${API_BASE}/auth/logout">登出</a></span>`;
+  $("authToggle").onclick = e => { e.stopPropagation(); $("authPanel").classList.toggle("open"); };
 }
 function plansHTML() {
   return `<div class="plans">
@@ -495,6 +515,10 @@ $("goAI").addEventListener("click", goAI);
   if (q.get("paid") === "1") { toast("付款成功，額度已入帳"); history.replaceState(null, "", location.pathname); setTimeout(() => loadMe(), 1500); }
 })();
 $("shareBtn").addEventListener("click", shareCard);
+document.addEventListener("click", e => {
+  const p = $("authPanel");
+  if (p && p.classList.contains("open") && !e.target.closest(".auth-menu")) p.classList.remove("open");
+});
 $("askAgain").addEventListener("click", () => {
 $("q").value = "";
 window.scrollTo({ top: 0, behavior: "smooth" });
