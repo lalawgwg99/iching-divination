@@ -650,11 +650,11 @@ function drawKBase(x, W, H, data, labels) {
   return { padL, step, n };
 }
 function drawDec(x, W, H) {
-  LIFE._geom = { kind: "dec", ...drawKBase(x, W, H, LIFE.decades, LIFE.decades.map(d => d.label)) };
+  LIFE._geom = { kind: "dec", ...drawKBase(x, W, H, LIFE.decades, LIFE.decades.map((d, i) => i % 2 === 0 ? d.label : null)) };
 }
 function drawYears(x, W, H) {
   const seg = LIFE.years.slice(LIFE.decSel * 10, LIFE.decSel * 10 + 10);
-  const g = drawKBase(x, W, H, seg, seg.map(d => d.age + "歲"));
+  const g = drawKBase(x, W, H, seg, seg.map((d, i) => i % 2 === 0 ? d.age + "歲" : null));
   // MA5
   const padT = 16, priceH = H - padT - 34 - 46 - 8;
   const py = v => padT + (100 - v) / 100 * priceH;
@@ -705,7 +705,7 @@ function lifeGo() {
   localStorage.setItem("yiwen_birth", v);
   LIFE = buildLife(yy, mm, dd);
   const mg = LIFE.ming;
-  $("lifeMing").innerHTML = `你的命卦：<b>第${mg.n}卦・${mg.name}</b>${guaLinesHTML(mg.name, null, true)}<div style="color:var(--ink2);font-size:.85rem;">${esc(mg.guaci)}</div>`;
+  $("lifeMing").innerHTML = `<div style="color:var(--ink2);font-size:.85rem;letter-spacing:.2em;">你的命卦</div><div style="font-size:1.35rem;letter-spacing:.12em;margin:6px 0;"><b>第${mg.n}卦・${mg.name}</b></div>${guaLinesHTML(mg.name)}<div style="color:var(--ink2);font-size:.9rem;margin-top:6px;">${esc(mg.guaci)}</div>`;
   ["lifeSwitch", "lifeCanvas", "lifePick", "lifeInfo"].forEach(id => $(id).style.display = "");
   $("lifeBack").style.display = "none";
   document.querySelectorAll("#lifeSwitch button").forEach(x => x.classList.toggle("on", x.dataset.v === "curve"));
