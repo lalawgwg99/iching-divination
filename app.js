@@ -889,7 +889,7 @@ $("goDivine").addEventListener("click", doDivine);
 $("goAI").addEventListener("click", goAI);
 (function handleReturn() {
   const q = new URLSearchParams(location.search);
-  if (q.get("login") === "ok") { toast("登入成功，歡迎回來"); history.replaceState(null, "", location.pathname); }
+  if (q.get("login") === "ok") { toast("登入成功，歡迎回來"); history.replaceState(null, "", location.pathname); loadMe(); }
   if (q.get("login") === "fail") { toast("登入失敗，請再試一次"); history.replaceState(null, "", location.pathname); }
   if (q.get("paid") === "1") { toast("付款成功，額度已入帳"); history.replaceState(null, "", location.pathname); setTimeout(() => loadMe(), 1500); }
 })();

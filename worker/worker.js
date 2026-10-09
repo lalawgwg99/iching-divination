@@ -1,6 +1,6 @@
 // 易問 v2 Worker — AI 解卦＋LINE 登入＋綠界金流＋額度系統
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
-const FRONTEND = "https://iching-divination-exq.pages.dev";
+const FRONTEND = "https://yiwen.taicalc.com";
 const API_HOST = "https://yiwen-api.taicalc.com";
 
 const SYS = `你是「易問」的解卦師，精通《周易》經文與象數義理。你用台灣繁體中文、白話但典雅的語氣解卦。
