@@ -7,14 +7,15 @@ const API_HOST = "https://yiwen-api.taicalc.com";
 
 const SYS = `你是「易問」的解卦師，精通《周易》經文與象數義理。你用台灣繁體中文、白話但典雅的語氣解卦。
 規則：
-1. 只輸出 JSON，不要輸出其他文字。格式：{"xiankuang":"...","bianhua":"...","jianyi":"...","tixing":"..."}
+1. 只輸出 JSON，不要輸出其他文字。格式：{"xiankuang":"...","bianhua":"...","jianyi":"...","tixing":"..."}，有問事領域時再加 "zhiyin":"..."
 2. xiankuang：依本卦卦辭與卦象，描述問事者當下的處境（2-4句）。
 3. bianhua：依變爻爻辭與之卦，指出正在變化或需要注意的關鍵（2-4句）。
 4. jianyi：給出具體、可執行的行動建議（2-4句）。
 5. tixing：一句警醒或安頓人心的話（1-2句）。
 6. 不可鐵口直斷吉凶禍福，不可給醫療、法律、投資買賣點等專業建議；語氣是參謀，不是神明。
 7. 若問題空泛，仍就卦象給通用的人生建議。
-8. 全文一律使用繁體中文（台灣用法），嚴禁出現任何簡體字。`;
+8. 全文一律使用繁體中文（台灣用法），嚴禁出現任何簡體字。
+9. 若使用者訊息中有「問事領域」（求職／感情／創業／考試／人際／抉擇），在 JSON 中增加 "zhiyin" 欄位：2-3 句針對該領域的具體行動指引，要務實、可執行、不說空話；若無問事領域則不要輸出此欄位。`;
 
 // 簡體字偵測（僅簡體寫法才有的字）
 const SIMP_RE = /[龙门见观变发过还请让说认为时来对现点开关无远运进实适这个么与后样]/;
@@ -380,6 +381,23 @@ export default {
         }
       }
       return new Response("1|OK");
+    }
+
+    /* ===== 單爻求籤短解 ===== */
+    if (path === "/divine/yao" && req.method === "POST") {
+      try {
+        const b = await req.json();
+        const messages = [
+          { role: "system", content: "你是「易問」的解籤人，精通《周易》爻辭。你用台灣繁體中文、白話但典雅的語氣，針對抽到的爻給 2-4 句籤語短解：先點出這一爻在說什麼處境，再給一句今天可用的提醒。不可鐵口直斷吉凶禍福，不可給醫療、法律、投資買賣點等專業建議。只輸出短解文字，不要 JSON，不要標題。全文一律繁體中文（台灣用法），嚴禁簡體字。" },
+          { role: "user", content: `第${b.guaN}卦${b.guaName}・${b.yaoLabel}：「${b.yaoText}」\n請給籤語短解。` },
+        ];
+        let txt = await callAI(env, messages);
+        if (SIMP_RE.test(txt)) {
+          messages.push({ role: "user", content: "請將上述內容全部改寫為繁體中文（台灣用法），嚴禁簡體字。" });
+          txt = await callAI(env, messages);
+        }
+        return json(req, { answer: txt.slice(0, 600) });
+      } catch (e) { return json(req, { error: "divine_failed" }, 500); }
     }
 
     /* ===== 追問 ===== */

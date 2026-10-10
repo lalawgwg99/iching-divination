@@ -167,19 +167,48 @@ if (mode === "time") {
 const d = new Date();
 h += `<div class="hint">將以現在時間起卦：${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 ${d.getHours()}時</div>`;
 } else if (mode === "pick") {
-h += `<select id="pickSel">${GUA.map(g => `<option value="${g.name}">${g.n}. ${g.name}</option>`).join("")}</select>`;
+pickUpper = null; pickLower = null;
+h += `<div id="pickGrids"></div>`;
 }
 ex.innerHTML = h;
+if (mode === "pick") renderPickGrids();
 $("goDivine").textContent = mode === "pick" ? "查 卦" : "起 卦";
 $("q").placeholder = mode === "pick" ? "查卦不用寫問題，直接選卦即可（也可以寫下想了解的角度）" : "把你心裡的事寫下來，越具體越好。例如：我該不該接下這個新專案？";
 }
 function buildPick() { renderModeExtra();}
+const TRI_SYM = {乾:"☰",兌:"☱",離:"☲",震:"☳",巽:"☴",坎:"☵",艮:"☶",坤:"☷"};
+const TRIS = ["乾","兌","離","震","巽","坎","艮","坤"];
+let pickUpper = null, pickLower = null;
+function triGridHTML(sel, step) {
+return `<div class="tri-grid">` + TRIS.map(t =>
+`<button class="tri-cell${sel === t ? " on" : ""}" data-tri="${t}" data-step="${step}"><span class="ts">${TRI_SYM[t]}</span><span class="tn">${t}</span></button>`).join("") + `</div>`;
+}
+function renderPickGrids() {
+const w = $("pickGrids"); if (!w) return;
+let h = `<div class="hint" style="margin-bottom:6px;">第一步・選上卦</div>` + triGridHTML(pickUpper, "up");
+if (pickUpper) {
+h += `<div class="hint" style="margin:10px 0 6px;">上卦已定：${pickUpper}${TRI_SYM[pickUpper]}・<a href="#" id="pickReset" style="color:var(--cinnabar);">重選</a></div>`;
+h += `<div class="reveal"><div class="hint" style="margin-bottom:6px;">第二步・選下卦</div>` + triGridHTML(pickLower, "lo") + `</div>`;
+}
+w.innerHTML = h;
+w.querySelectorAll(".tri-cell").forEach(b => b.onclick = () => {
+if (b.dataset.step === "up") { pickUpper = b.dataset.tri; pickLower = null; }
+else pickLower = b.dataset.tri;
+renderPickGrids();
+});
+const rs = $("pickReset");
+if (rs) rs.onclick = e => { e.preventDefault(); pickUpper = null; pickLower = null; renderPickGrids(); };
+}
+function pickedGua() {
+if (!pickUpper || !pickLower) return null;
+return GUA.find(g => g.upper_trigram === pickUpper && g.lower_trigram === pickLower) || null;
+}
 
 function doDivine() {
 $("followWrap").style.display = "none";
 let q = $("q").value.trim();
 if (!q) {
-if (mode === "pick") { q = `我想了解「${$("pickSel").value}」卦`; }
+if (mode === "pick") { const pg = pickedGua(); if (!pg) { alert("請先選上卦、下卦"); return; } q = `我想了解「${pg.name}」卦`; }
 else { alert("請先寫下你想問的事"); $("q").focus(); return;}
 }
 let yaos;
@@ -197,8 +226,9 @@ const upN = names[up], loN = names[lo];
 const bits = [...triBits[loN],...triBits[upN]];
 yaos = bits.map((b, i) => ({ yang:!!b, moving: i === mvIdx, label: labelOf(!!b, i)}));
 } else {
-const name = $("pickSel").value;
-const g = byName(name);
+const g = pickedGua();
+if (!g) { alert("請先選上卦、下卦"); return; }
+const name = g.name;
 const triBits = { 乾: [1,1,1], 兌: [1,1,0], 離: [1,0,1], 震: [1,0,0], 巽: [0,1,1], 坎: [0,1,0], 艮: [0,0,1], 坤: [0,0,0]};
 const bits = [...triBits[g.lower_trigram],...triBits[g.upper_trigram]];
 yaos = bits.map((b, i) => ({ yang:!!b, moving: false, label: labelOf(!!b, i)}));
@@ -367,9 +397,10 @@ if (!r.ok) throw new Error("服務暫時忙線中（" + r.status + "）");
 const d = await r.json();
 if (ME && ME.loggedIn) { loadMe(); }
 resetFollow();
-const blocks = [["現況", d.xiankuang], ["變數", d.bianhua], ["建議", d.jianyi], ["提醒", d.tixing]];
+const blocks = [["現況", d.xiankuang, "xiankuang"], ["變數", d.bianhua, "bianhua"], ["建議", d.jianyi, "jianyi"], ["提醒", d.tixing, "tixing"]];
+const zyHTML = d.zhiyin ? `<div class="zhiyin-box"><b>問事指引</b><p>${esc(d.zhiyin)}</p></div>` : "";
 $("aiOut").innerHTML = `<div class="ai-sec">` + blocks.map((b, i) =>
-`<div class="ai-block" style="animation-delay:${(i * 0.12).toFixed(2)}s"><h3>${b[0]}</h3><p>${esc(b[1])}</p></div>`).join("") + `<div class="closing">卦已觀畢，心中有數<br><span>決定，永遠在你手上。</span></div></div>`;
+`<div class="ai-block k-${b[2]}" style="animation-delay:${(i * 0.12).toFixed(2)}s"><h3>${b[0]}</h3><p>${esc(b[1])}</p>${b[2] === "jianyi" ? zyHTML : ""}</div>`).join("") + `<div class="closing">卦已觀畢，心中有數<br><span>決定，永遠在你手上。</span></div></div>`;
 cur.ai = d; saveHist();
 clearInterval(aiTimer);
 $("shareBtn").disabled = false;
@@ -606,6 +637,7 @@ function mulberry32(a) {
     return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }
+const REFLECT_Q = {"乾":"今天我主動創造了什麼價值？","坤":"我是否包容接納了不同的聲音？","屯":"面對混亂，我先整理了哪一項？","蒙":"今天我主動請教過什麼問題？","需":"我是否在等待中做好準備工作？","訟":"爭執時我有沒有先冷靜思考？","師":"帶領團隊時我是否以身作則？","比":"我有主動關心身邊夥伴嗎？","小畜":"小進展我有沒有記錄下來？","履":"行動前我是否評估過風險？","泰":"順遂時我有保持謙遜嗎？","否":"困境中我是否守住底線？","同人":"今天我與誰建立了真誠連結？","大有":"資源豐富時我有分享給他人嗎？","謙":"成果出來時我沒有居功嗎？","豫":"快樂氛圍中我有把握分寸嗎？","隨":"跟隨趨勢時我守住初心了嗎？","蠱":"發現問題我是否從自身改起？","臨":"臨近目標我有檢視細節嗎？","觀":"今天我透過觀察學到了什麼？","噬嗑":"處理糾結我是否果斷切入？","賁":"修飾外表時我保留真實嗎？","剝":"局勢走低我怎麼保護核心？","復":"偏離軌道後我多久回頭？","无妄":"今天我做了多少不計較的事？","大畜":"積累能量時我有規劃方向嗎？","頤":"我今天養養了身心靈哪一項？","大過":"壓力過大時我有尋求支撐嗎？","坎":"陷入重複困境我嘗試新法了嗎？","離":"專注當下我是否依附正確事物？","咸":"互動中我有真誠感應對方嗎？","恒":"今天我堅持完成了什麼小事？","遯":"該退場時我有體面離開嗎？","大壯":"力量強盛時我有克制衝動嗎？","晉":"進步明顯時我有回饋支持者嗎？","明夷":"處於低調期我如何保存火種？","家人":"今天家裡溝通有溫度嗎？","睽":"意見不合時我找到共同點嗎？","蹇":"遇阻礙我是否尋求長輩建議？","解":"鬆綁後我有立即整理善後嗎？","損":"主動犧牲小利換來大安穩嗎？","益":"今天我給誰帶來實質幫助？","夬":"果斷決定後我有溝通說明嗎？","姤":"意外相遇我是否把握邊界？","萃":"群體聚會我有貢獻凝聚力嗎？","升":"循序漸進中我穩住每一步嗎？","困":"受困境中我守住誠信沒抱怨嗎？","井":"資源共享時我有維護公共設施嗎？","革":"變革時機成熟我果斷行動了嗎？","鼎":"新架構建立我有重新定位嗎？","震":"突發狀況我保持鎮定應對了嗎？","艮":"該停下時我有適時止步嗎？","漸":"長期目標今天前進一小步嗎？","歸妹":"合作關係我是否平等尊重？","豐":"成果豐碩時我有防微杜漸嗎？","旅":"在外漂泊我有安頓好自己嗎？","巽":"柔和滲透中我有堅持方向嗎？","兌":"今天我帶給誰愉悅心情？","渙":"僵局化解我是否主動破冰？","節":"制定規範我有留彈性空間嗎？","中孚":"言行一致讓誰感受到可信？","小過":"小事超前部署我有避免大錯嗎？","既濟":"大功告成我有防備尾聲亂象嗎？","未濟":"接近成功我是否更謹慎收尾？"};
 let DAILY = null;
 function renderDaily() {
   const now = new Date();
@@ -621,6 +653,7 @@ function renderDaily() {
   $("dailyGuaci").textContent = g.guaci;
   $("dailyBaihua").textContent = bhOf(g.name);
   $("dailyQs").innerHTML = `<b>今日啟示</b><br>${esc(qsOf(g.name))}`;
+  $("dailyReflect").innerHTML = `<span class="rq-tag">一問</span>${esc(REFLECT_Q[g.name] || "")}`;
   const yao = g.yao[yi];
   $("dailyYao").innerHTML = `今日之爻・<b>${yao.label}</b>「${esc(yao.text)}」`;
 }
@@ -641,44 +674,56 @@ function dailyCard() {
   const { g, yi, date } = DAILY;
   const c = $("shareCanvas"), x = c.getContext("2d");
   const W = 1080, H = 1350;
+  const SERIF = '"Noto Serif TC", "Songti TC", serif';
+  const ls = v => { try { x.letterSpacing = v; } catch (e) {} };
+  // 紙色＋雙線框
   x.fillStyle = "#f6f2e8"; x.fillRect(0, 0, W, H);
   x.strokeStyle = "#1e3a2f"; x.lineWidth = 6; x.strokeRect(36, 36, W - 72, H - 72);
-  x.strokeStyle = "#1e3a2f"; x.lineWidth = 2; x.strokeRect(52, 52, W - 104, H - 104);
-  x.fillStyle = "#b03a2e"; x.fillRect(W / 2 - 46, 96, 92, 92);
-  x.fillStyle = "#fff"; x.font = "52px serif"; x.textAlign = "center"; x.fillText("易", W / 2, 164);
-  x.fillStyle = "#22201b"; x.font = "60px serif";
-  x.fillText("易 問", W / 2, 280);
-  x.fillStyle = "#5c564a"; x.font = "30px serif"; x.fillText("每日一卦", W / 2, 328);
+  x.lineWidth = 2; x.strokeRect(54, 54, W - 108, H - 108);
+  x.textAlign = "center";
+  // 頂：每日一卦＋日期
   const wd = ["日", "一", "二", "三", "四", "五", "六"][date.getDay()];
-  x.fillStyle = "#8a8474"; x.font = "28px serif";
-  x.fillText(`${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日・星期${wd}`, W / 2, 372);
+  ls("10px");
+  x.fillStyle = "#8a8474"; x.font = `30px ${SERIF}`;
+  x.fillText("每日一卦", W / 2, 150);
+  ls("4px");
+  x.font = `26px ${SERIF}`;
+  x.fillText(`${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日・星期${wd}`, W / 2, 198);
+  // 卦爻小圖
   const bits = yaoBitsOf(g.name);
-  const topY = 430, lh = 30, lw = 170, cx = W / 2;
+  const topY = 258, lh = 26, lw = 150, cx = W / 2;
   x.fillStyle = "#22201b";
   bits.forEach((b, i) => {
     const y = topY + (5 - i) * lh;
-    if (b) x.fillRect(cx - lw / 2, y, lw, 13);
-    else { x.fillRect(cx - lw / 2, y, lw / 2 - 13, 13); x.fillRect(cx + 13, y, lw / 2 - 13, 13); }
+    if (b) x.fillRect(cx - lw / 2, y, lw, 11);
+    else { x.fillRect(cx - lw / 2, y, lw / 2 - 11, 11); x.fillRect(cx + 11, y, lw / 2 - 11, 11); }
   });
-  let yy = 700;
-  x.fillStyle = "#22201b"; x.font = "56px serif";
-  x.fillText(`第${g.n}卦・${g.name}`, W / 2, yy); yy += 62;
-  x.fillStyle = "#5c564a"; x.font = "30px serif";
-  wrapLinesC(x, g.guaci, 880, 2).forEach(ln => { x.fillText(ln, W / 2, yy); yy += 46; });
-  yy += 18;
-  x.fillStyle = "#8a8474"; x.font = "28px serif";
-  wrapLinesC(x, bhOf(g.name), 880, 2).forEach(ln => { x.fillText(ln, W / 2, yy); yy += 44; });
-  yy += 24;
-  x.fillStyle = "#b03a2e"; x.font = "34px serif";
-  x.fillText("今日啟示", W / 2, yy); yy += 48;
-  x.fillStyle = "#22201b"; x.font = "32px serif";
-  wrapLinesC(x, qsOf(g.name), 880, 3).forEach(ln => { x.fillText(ln, W / 2, yy); yy += 48; });
-  yy += 20;
-  const yao = g.yao[yi];
-  x.fillStyle = "#5c564a"; x.font = "28px serif";
-  wrapLinesC(x, `今日之爻・${yao.label}「${yao.text}」`, 880, 2).forEach(ln => { x.fillText(ln, W / 2, yy); yy += 44; });
-  x.fillStyle = "#b03a2e"; x.font = "26px serif";
-  x.fillText("易問・觀變玩占", W / 2, H - 92);
+  // 卦名小字
+  ls("8px");
+  x.fillStyle = "#5c564a"; x.font = `34px ${SERIF}`;
+  x.fillText(`第${g.n}卦・${g.name}`, W / 2, 500);
+  // 主角：籤語大字
+  ls("10px");
+  x.fillStyle = "#22201b"; x.font = `64px ${SERIF}`;
+  let yy = 650;
+  wrapLinesC(x, qsOf(g.name), 860, 4).forEach(ln => { x.fillText(ln, W / 2, yy); yy += 98; });
+  // 反思一問（小字點綴）
+  const rq = (typeof REFLECT_Q !== "undefined" && REFLECT_Q[g.name]) || "";
+  if (rq) {
+    ls("4px");
+    x.fillStyle = "#8a8474"; x.font = `28px ${SERIF}`;
+    wrapLinesC(x, "一問：" + rq, 860, 2).forEach(ln => { x.fillText(ln, W / 2, yy + 44); yy += 50; });
+  }
+  // 右下角朱紅印章落款
+  const ss = 120, sx = W - 162 - ss, sy = H - 200 - ss;
+  x.fillStyle = "#b03a2e";
+  if (x.roundRect) { x.beginPath(); x.roundRect(sx, sy, ss, ss, 12); x.fill(); }
+  else x.fillRect(sx, sy, ss, ss);
+  ls("0px");
+  x.fillStyle = "#fff"; x.font = `54px ${SERIF}`;
+  x.fillText("易", sx + ss / 2, sy + 56);
+  x.fillText("問", sx + ss / 2, sy + 108);
+  ls("0px");
   showCardPreview(c.toDataURL("image/png"), `易問_每日一卦_${date.getMonth() + 1}${date.getDate()}.png`);
 }
 $("dailyShare").addEventListener("click", dailyCard);
@@ -723,6 +768,37 @@ async function initPush() {
   };
 }
 initPush();
+
+/* ---------- 求籤（單爻占筮） ---------- */
+$("qianBtn").addEventListener("click", async () => {
+  const btn = $("qianBtn"); btn.disabled = true;
+  $("qianResult").style.display = "none";
+  const st = $("qianStage"); st.style.display = "";
+  st.classList.remove("rising"); st.classList.add("shaking");
+  clink(0); clink(0.2);
+  const g = GUA[Math.floor(Math.random() * 64)];
+  const yi = Math.floor(Math.random() * 6);
+  const yao = g.yao[yi];
+  const num = (g.n - 1) * 6 + yi + 1;
+  await new Promise(r => setTimeout(r, 1000));
+  st.classList.remove("shaking"); st.classList.add("rising");
+  await new Promise(r => setTimeout(r, 950));
+  st.style.display = "none"; st.classList.remove("rising");
+  const rs = $("qianResult"); rs.style.display = ""; showEl(rs);
+  $("qianSeal").textContent = `第${num}籤`;
+  $("qianMeta").textContent = `第${g.n}卦・${g.name}・${yao.label}`;
+  $("qianYao").textContent = yao.text;
+  $("qianAi").innerHTML = `<div class="loading">解籤中…</div>`;
+  rs.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  try {
+    const r = await fetch(API_BASE + "/divine/yao", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guaN: g.n, guaName: g.name, yaoLabel: yao.label, yaoText: yao.text }) });
+    const d = await r.json();
+    $("qianAi").textContent = d.answer || "籤語整理中，請稍後再試";
+  } catch (e) { $("qianAi").textContent = "解籤失敗，請稍後再試"; }
+  btn.disabled = false; btn.textContent = "再求一籤";
+});
 
 
 
