@@ -43,6 +43,20 @@ textarea::placeholder{font-size:.88rem; color:#a09a89; line-height:30px;}
 .modes button{flex:1; border:1px solid var(--line); background:#fff; border-radius:var(--r-sm);
   padding:12px 4px; font-size:.85rem; white-space:nowrap; line-height:1.5; font-family:inherit; cursor:pointer; color:var(--ink);}
 .modes button.on{background:var(--brand); color:#fff; border-color:var(--brand);}
+/* 底部分類導航 */
+.wrap{padding-bottom:96px;}
+#tabbar{position:fixed; left:0; right:0; bottom:0; z-index:50;
+  display:flex; background:rgba(246,242,232,.96); backdrop-filter:blur(8px);
+  border-top:1px solid var(--line); padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
+#tabbar button{flex:1; background:none; border:none; cursor:pointer; font-family:inherit;
+  display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 0;
+  color:var(--ink2); -webkit-tap-highlight-color:transparent;}
+#tabbar .ti{font-size:1.15rem; line-height:1; width:34px; height:34px; display:flex;
+  align-items:center; justify-content:center; border-radius:50%; border:1px solid var(--line);
+  font-family:"Noto Serif TC",serif;}
+#tabbar .tl{font-size:.68rem; letter-spacing:.2em; text-indent:.2em;}
+#tabbar button.on{color:var(--brand);}
+#tabbar button.on .ti{background:var(--brand); border-color:var(--brand); color:#fff;}
 /* 求籤 */
 #qianStage{min-height:176px; display:flex; align-items:flex-end; justify-content:center; position:relative; margin:10px 0;}
 .qian-tube{width:92px; height:128px; border-radius:10px 10px 16px 16px; position:relative; transform-origin:50% 92%;
@@ -344,7 +358,7 @@ header.top{position:relative;}
   <div id="authBox" class="authbox"></div>
 </header>
 
-<section class="card dailycard">
+<section class="card dailycard" id="dailyCardSec">
   <h2><span class="vol">今日</span><span class="t">每日一卦</span></h2>
   <div class="daily-date" id="dailyDate"></div>
   <div id="dailyHex"></div>
@@ -375,7 +389,7 @@ header.top{position:relative;}
   <button class="btn" id="qianBtn" style="margin-top:14px;">求一籤</button>
 </section>
 
-<div class="card">
+<div class="card" id="askCard">
   <h2><span class="vol">卷一</span><span class="t">問事</span></h2>
   <textarea id="q" placeholder="把你心裡的事寫下來，越具體越好。例如：我該不該接下這個新專案？"></textarea>
   <div class="topics" id="topics"><span class="topics-label">不知道怎麼問？</span><button data-t="求職">求職</button><button data-t="感情">感情</button><button data-t="創業">創業</button><button data-t="考試">考試</button><button data-t="人際">人際</button><button data-t="抉擇">抉擇</button></div>
@@ -426,7 +440,7 @@ header.top{position:relative;}
   <div id="histList"></div>
 </div>
 
-<div class="card plain">
+<div class="card plain" id="theoryCard">
   <h2><span class="vol">卷四</span><span class="t">易經原理</span></h2>
   <div class="principle">
     <details open><summary>起卦</summary>
@@ -442,7 +456,7 @@ header.top{position:relative;}
   </div>
 </div>
 
-<section class="card lifecard">
+<section class="card lifecard" id="lifeCard">
   <h2><span class="vol">卷五</span><span class="t">人生運勢圖</span></h2>
   <div class="hint">輸入生日，起命卦，看人生的山水：曲線是運勢起伏，點進去看十年大運。</div>
   <div class="life-input">
@@ -470,6 +484,13 @@ header.top{position:relative;}
 </footer>
 </div>
 <canvas id="shareCanvas" width="1080" height="1350" style="display:none;"></canvas>
-<script src="app.js?v=20261010d"></script>
+<script src="app.js?v=20261010e"></script>
+<nav id="tabbar">
+  <button data-tab="ask" class="on"><span class="ti">問</span><span class="tl">問事</span></button>
+  <button data-tab="qian"><span class="ti">籤</span><span class="tl">求籤</span></button>
+  <button data-tab="daily"><span class="ti">日</span><span class="tl">每日</span></button>
+  <button data-tab="hist"><span class="ti">記</span><span class="tl">記錄</span></button>
+  <button data-tab="more"><span class="ti">餘</span><span class="tl">更多</span></button>
+</nav>
 </body>
 </html>

@@ -460,7 +460,7 @@ el.innerHTML = `<div class="rv-stat">☁️ 雲端同步中・累計占卦 ${s.t
 function renderHist() {
 const h = getHist();
 if (!h.length) return;
-$("histCard").style.display = "";
+$("histCard").style.display = ""; $("histCard").dataset.shown = "1";
 const now = Date.now();
 const reviewed = h.filter(x => x.rv);
 const hit = reviewed.filter(x => x.rv.r === "hit").length;
@@ -768,6 +768,34 @@ async function initPush() {
   };
 }
 initPush();
+
+/* ---------- 底部分類導航 ---------- */
+const TABMAP = {
+  ask: ["askCard", "guaCard", "aiCard"],
+  qian: ["qianCard"],
+  daily: ["dailyCardSec"],
+  hist: ["histCard"],
+  more: ["theoryCard", "lifeCard"],
+};
+let curTab = "ask";
+function switchTab(name) {
+  curTab = name;
+  const allIds = [...new Set(Object.values(TABMAP).flat())];
+  allIds.forEach(id => { const el = document.getElementById(id); if (el) el.style.display = "none"; });
+  (TABMAP[name] || []).forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    // 卦卡/AI卡/記錄卡：只在曾經顯示過時才顯示
+    if ((id === "guaCard" || id === "aiCard" || id === "histCard") && el.dataset.shown !== "1") return;
+    el.style.display = "";
+  });
+  document.querySelectorAll("#tabbar button").forEach(b => b.classList.toggle("on", b.dataset.tab === name));
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+document.querySelectorAll("#tabbar button").forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+// showEl 記住顯示狀態，供分頁判斷
+const _showEl = showEl;
+showEl = function (el) { el.dataset.shown = "1"; _showEl(el); };
+switchTab("ask");
 
 /* ---------- 求籤（單爻占筮） ---------- */
 $("qianBtn").addEventListener("click", async () => {
