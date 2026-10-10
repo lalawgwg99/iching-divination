@@ -772,7 +772,7 @@ initPush();
 
 /* ---------- 底部分類導航 ---------- */
 const TABMAP = {
-  ask: ["askCard", "guaCard", "aiCard"],
+  ask: ["askCard", "lifeTeaser", "guaCard", "aiCard"],
   qian: ["qianCard"],
   daily: ["dailyCardSec"],
   hist: ["histCard"],
@@ -797,6 +797,8 @@ document.querySelectorAll("#tabbar button").forEach(b => b.onclick = () => switc
 const _showEl = showEl;
 showEl = function (el) { el.dataset.shown = "1"; _showEl(el); };
 switchTab("ask");
+$("lifeTeaser").style.display = "";
+$("lifeTeaser").onclick = () => { switchTab("more"); setTimeout(() => document.getElementById("lifeCard").scrollIntoView({ behavior: "smooth" }), 80); };
 
 /* ---------- 求籤（單爻占筮） ---------- */
 $("qianBtn").addEventListener("click", async () => {
@@ -830,6 +832,74 @@ $("qianBtn").addEventListener("click", async () => {
 });
 
 
+
+/* ---------- 命卦人物小傳 ---------- */
+const MING_TXT = {
+"乾": "天行健，你是停不下來的開創者，注定走在前面。",
+"坤": "厚德載物，你是眾人最安心的後盾，柔順中有大力量。",
+"屯": "萬事起頭難，你的人生是開荒者的劇本，越難越見本事。",
+"蒙": "永遠的好學生，你靠虛心求教，把未知走成地圖。",
+"需": "等待的藝術家，時機未到不出手，一出手就到位。",
+"訟": "條理分明，天生會爭對的事，但記得見好就收。",
+"師": "天生的統帥，眾人願意跟你走，因為你扛得起責任。",
+"比": "人和的磁場，你走到哪裡，哪裡就有人願意親近你。",
+"小畜": "以小博大，擅長用有限資源，養出超出預期的成果。",
+"履": "如履薄冰卻步步為營，謹慎是你最大的護身符。",
+"泰": "通達順遂，人生基調是和諧，貴人總在需要時出現。",
+"否": "先閉塞後通達，熬過的低谷都會變成後來的養分。",
+"同人": "志同道合，一生貴在朋友，得眾人之力成大事。",
+"大有": "豐盛之命，擁有得多也大方，福氣會流動回來。",
+"謙": "滿招損、謙受益，你越低調，站得越高。",
+"豫": "樂觀的行動派，你讓身邊的人都想跟著動起來。",
+"隨": "隨緣而有主見，懂得順勢，是極好的合作者。",
+"蠱": "撥亂反正的人，專治各種爛攤子，越整越有味。",
+"臨": "親臨現場的領導者，你的出現本身就能安定人心。",
+"觀": "洞察人心的觀察者，看懂局，才出手。",
+"噬嗑": "快刀斬亂麻，遇到卡住的事，找你就對了。",
+"賁": "美學家，把日子過成作品，細節裡見品味。",
+"剝": "懂得斷捨離，剝去多餘，反而留下最精華的。",
+"復": "跌倒再起的體質，低谷永遠是下一波高峰的前奏。",
+"无妄": "真誠無偽，不耍心機，這份乾淨就是你的運氣。",
+"大畜": "厚積薄發，存的不只是實力，還有時機。",
+"頤": "懂得養生養心，照顧好自己，也照顧好身邊的人。",
+"大過": "非常之人行非常之事，扛得起超乎常人的擔子。",
+"坎": "越險越勇，逆境裡反而最清醒，天生的危機處理者。",
+"離": "自帶光芒，熱情會感染人，但記得別燒光自己。",
+"咸": "心有靈犀，靠感覺走路，感應往往比分析更準。",
+"恆": "細水長流，堅持比爆發力更可怕，時間是你的朋友。",
+"遯": "懂得急流勇退，退一步，是為了走更遠的路。",
+"大壯": "氣勢如虹，適合大場面，越大越見格局。",
+"晉": "旭日東升，路是往上走的，貴人運特別強。",
+"明夷": "在黑暗中守光的人，受過的委屈都煉成了智慧。",
+"家人": "以家為重，經營的不只是事業，更是一個安穩的窩。",
+"睽": "特立獨行，跟別人不一樣，而這正是你的價值。",
+"蹇": "知難而進，路越難走得越穩，終會柳暗花明。",
+"解": "化解高手，再糾結的結，到你手上都能解開。",
+"損": "懂得捨才有得，減去慾望，留下真正重要的。",
+"益": "利人利己，越幫人，自己得到的越多。",
+"夬": "果決明快，該斷就斷，決斷力是稀有資產。",
+"姤": "機緣特別多，總在對的時間遇到對的人，記得把握。",
+"萃": "聚沙成塔，把人聚起來、把資源聚起來，成大事。",
+"升": "步步高升，人生曲線是緩坡向上，穩紮穩打。",
+"困": "越困越強，在谷底練出的本事，是別人學不來的。",
+"井": "甘泉之命，默默滋養身邊的人，是大家的活水源頭。",
+"革": "變革者，不怕推翻重來，總能開出新局。",
+"鼎": "鼎新持重，扛得起大任，是能定鼎江山的人。",
+"震": "一鳴驚人，爆發力強，適合關鍵時刻挺身而出。",
+"艮": "如山之穩，不動如山，是眾人眼中的定海神針。",
+"漸": "循序漸進，不求快，但每一步都算數，終至高處。",
+"歸妹": "重情重義，為在乎的人付出很多，記得留點給自己。",
+"豐": "豐盛飽滿，人生多采多姿，適合熱鬧的大舞台。",
+"旅": "行者之命，在路上找到自己，漂泊中自有安定。",
+"巽": "如風入境，柔軟而無孔不入，影響力在無形中擴散。",
+"兌": "開心果，讓人如沐春風，人緣是最大的資產。",
+"渙": "化解渙散，能把一盤散沙重新聚攏，化危機為轉機。",
+"節": "有節有度，懂得節制，人生走得長遠而優雅。",
+"中孚": "誠信立身，信用就是名片，眾人願託付於你。",
+"小過": "細節控，在小事上用心，大事自然水到渠成。",
+"既濟": "功成之象，擅長把事情做到位，記得居安思危。",
+"未濟": "永遠在路上，精彩在後頭，好戲還沒上場。"
+};
 
 /* ---------- v4：人生運勢圖（曲線主視覺＋K線鑽取） ---------- */
 let LIFE = null;
@@ -909,9 +979,19 @@ function drawCurve(x, W, H) {
   const py = v => padT + (100 - v) / 100 * (H - padT - padB);
   const px = i => padL + i / 90 * (W - padL - padR);
   const pts = LIFE.years.map((d, i) => ({ x: px(i), y: py(d.sc) }));
-  // 淡網格
-  x.strokeStyle = "#ece4cf"; x.lineWidth = 1;
-  [25, 50, 75].forEach(v => { x.beginPath(); x.moveTo(padL, py(v)); x.lineTo(W - padR, py(v)); x.stroke(); });
+  // 遠山兩層（淡墨）
+  [[0.42, 20, "rgba(30,58,47,.07)"], [0.62, 10, "rgba(30,58,47,.10)"]].forEach(([k, off, col]) => {
+    const rp = LIFE.years.map((d, i) => ({ x: px(i), y: py(d.sc * k + off) }));
+    smoothLine(x, rp);
+    x.lineTo(rp[90].x, H - padB); x.lineTo(rp[0].x, H - padB); x.closePath();
+    x.fillStyle = col; x.fill();
+  });
+  // 雲霧
+  [[0.22, 0.40, 0.30], [0.58, 0.28, 0.34], [0.82, 0.48, 0.26]].forEach(([fx, fy, fw]) => {
+    const fg = x.createRadialGradient(W * fx, H * fy, 0, W * fx, H * fy, W * fw / 2);
+    fg.addColorStop(0, "rgba(250,247,238,.6)"); fg.addColorStop(1, "rgba(250,247,238,0)");
+    x.fillStyle = fg; x.fillRect(0, 0, W, H);
+  });
   // 山水填色
   const gr = x.createLinearGradient(0, padT, 0, H - padB);
   gr.addColorStop(0, "rgba(176,58,46,.16)"); gr.addColorStop(1, "rgba(176,58,46,0)");
@@ -1032,8 +1112,9 @@ function lifeGo() {
   localStorage.setItem("yiwen_birth", v);
   LIFE = buildLife(yy, mm, dd);
   const mg = LIFE.ming;
-  $("lifeMing").innerHTML = `<div style="color:var(--ink2);font-size:.85rem;letter-spacing:.2em;">你的命卦</div><div style="font-size:1.35rem;letter-spacing:.12em;margin:6px 0;"><b>第${mg.n}卦・${mg.name}</b></div>${guaLinesHTML(mg.name)}<div style="color:var(--ink2);font-size:.9rem;margin-top:6px;">${esc(mg.guaci)}</div>`;
-  ["lifeSwitch", "lifeCanvas", "lifePick", "lifeInfo"].forEach(id => $(id).style.display = "");
+  const mingTxt = MING_TXT[mg.name] || "";
+  $("lifeMing").innerHTML = `<div style="color:var(--ink2);font-size:.85rem;letter-spacing:.2em;">你的命卦</div><div style="font-size:1.35rem;letter-spacing:.12em;margin:6px 0;"><b>第${mg.n}卦・${mg.name}</b></div>${guaLinesHTML(mg.name)}<div class="ming-txt">${esc(mingTxt)}</div><div style="color:var(--ink2);font-size:.9rem;margin-top:6px;">${esc(mg.guaci)}</div>`;
+  ["lifeSwitch", "lifeCanvas", "lifePick", "lifeInfo", "lifeShare"].forEach(id => $(id).style.display = "");
   $("lifeBack").style.display = "none";
   document.querySelectorAll("#lifeSwitch button").forEach(x => x.classList.toggle("on", x.dataset.v === "curve"));
   buildLifeSel();
@@ -1041,7 +1122,7 @@ function lifeGo() {
 }
 $("lifeGo").addEventListener("click", lifeGo);
 const lifeNowAge = () => Math.max(0, Math.min(90, new Date().getFullYear() - LIFE.y));
-const lifeDecHint = () => { $("lifeInfo").innerHTML = `<div style="color:var(--ink2);font-size:.9rem;">點選一根十年 K 線，鑽進去看那十年的年 K。</div>`; };
+const lifeDecHint = () => { $("lifeInfo").innerHTML = `<div style="color:var(--ink2);font-size:.9rem;">點一根柱子，看那十年每一年的運勢。</div>`; };
 document.querySelectorAll("#lifeSwitch button").forEach(b => b.onclick = () => {
   if (!LIFE) return;
   LIFE.view = b.dataset.v;
@@ -1058,6 +1139,58 @@ $("lifeBack").addEventListener("click", () => {
   $("lifeBack").style.display = "none";
   buildLifeSel();
   lifeDecHint(); drawLife();
+});
+/* ---------- 命運山水圖卡分享 ---------- */
+function wrapText(x, text, maxW) {
+  const lines = []; let line = "";
+  for (const ch of text) {
+    if (x.measureText(line + ch).width > maxW && line) { lines.push(line); line = ch; }
+    else line += ch;
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+$("lifeShare").addEventListener("click", () => {
+  if (!LIFE) return;
+  const W = 1080, H = 1350;
+  const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const x = cv.getContext("2d");
+  x.fillStyle = "#f6f2e8"; x.fillRect(0, 0, W, H);
+  x.strokeStyle = "#1e3a2f"; x.lineWidth = 3; x.strokeRect(28, 28, W - 56, H - 56);
+  x.lineWidth = 1; x.strokeRect(44, 44, W - 88, H - 88);
+  x.textAlign = "center"; x.fillStyle = "#1e3a2f";
+  x.font = "44px serif"; x.fillText("易問・人生命運山水", W / 2, 150);
+  const mg = LIFE.ming;
+  x.fillStyle = "#b03a2e"; x.font = "bold 64px serif";
+  x.fillText(`第${mg.n}卦・${mg.name}`, W / 2, 250);
+  x.fillStyle = "#3a352c"; x.font = "36px serif";
+  wrapText(x, MING_TXT[mg.name] || "", 880).forEach((ln, i) => x.fillText(ln, W / 2, 320 + i * 52));
+  const sc = document.createElement("canvas"); sc.width = 960; sc.height = 400;
+  const sx = sc.getContext("2d");
+  sx.fillStyle = "#f6f2e8"; sx.fillRect(0, 0, 960, 400);
+  const keepGeom = LIFE._geom;
+  drawCurve(sx, 960, 400);
+  LIFE._geom = keepGeom;
+  x.drawImage(sc, 60, 420, 960, 400);
+  x.fillStyle = "#3a352c"; x.font = "34px serif";
+  x.fillText("人生高峰", W / 2, 900);
+  x.fillStyle = "#b03a2e"; x.font = "32px serif";
+  LIFE.peaks.forEach((p, i) => {
+    const d = LIFE.years[p];
+    x.fillText(`${p}歲・${d.g.name}`, W / 2, 955 + i * 50);
+  });
+  x.save(); x.translate(W - 170, H - 170); x.rotate(-0.08);
+  x.fillStyle = "#b03a2e"; x.fillRect(-62, -62, 124, 124);
+  x.fillStyle = "#f6f2e8"; x.font = "bold 52px serif";
+  x.fillText("易問", 0, 18); x.restore();
+  x.fillStyle = "#8a8474"; x.font = "28px serif";
+  const dt = new Date();
+  x.fillText(`${dt.getFullYear()}年${dt.getMonth() + 1}月${dt.getDate()}日`, W / 2, H - 90);
+  const link = document.createElement("a");
+  link.download = "易問-命運山水.png";
+  link.href = cv.toDataURL("image/png");
+  link.click();
+  toast("命運圖已存成圖片，可以分享了");
 });
 $("lifeCanvas").addEventListener("click", e => {
   if (!LIFE || !LIFE._geom) return;
