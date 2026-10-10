@@ -1251,7 +1251,9 @@ function lifeGo() {
   const mingTxt = MING_TXT[mg.name] || "";
   $("lifeMing").innerHTML = `<div style="color:var(--ink2);font-size:.85rem;letter-spacing:.2em;">你的命卦</div><div style="font-size:1.35rem;letter-spacing:.12em;margin:6px 0;"><b>第${mg.n}卦・${mg.name}</b></div>${guaLinesHTML(mg.name)}<div class="ming-txt">${esc(mingTxt)}</div><div style="color:var(--ink2);font-size:.9rem;margin-top:6px;">${esc(mg.guaci)}</div>`;
   ["lifeSwitch", "lifeCanvas", "lifePick", "lifeInfo", "lifeShare"].forEach(id => $(id).style.display = "");
-  $("lifeReading").innerHTML = lifeReadingHTML(); $("lifeReading").style.display = "";
+  $("lifeReading").innerHTML = lifeReadingHTML();
+  const sc = $("lifeScroll"); sc.style.display = "";
+  sc.classList.remove("unroll"); void sc.offsetWidth; sc.classList.add("unroll");
   lifeGong();
   animateLife();
   $("lifeBack").style.display = "none";
