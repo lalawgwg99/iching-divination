@@ -483,24 +483,37 @@ el.innerHTML = `<div class="rv-stat">☁️ 雲端同步中・累計占卦 ${s.t
 (gua ? `<br>最常得：${gua}` : "") + (tp ? `<br>常問主題：${tp}` : "") + `</div>`;
 } catch (e) {}
 }
+let histExpanded = false;
 function renderHist() {
 const h = getHist();
-if (!h.length) return;
+if (!h.length) { $("histList").innerHTML = ""; $("histCard").style.display = "none"; return; }
 $("histCard").dataset.shown = "1";
 if (typeof curTab === "undefined" || curTab === "hist") $("histCard").style.display = "";
 const now = Date.now();
 const reviewed = h.filter(x => x.rv);
 const hit = reviewed.filter(x => x.rv.r === "hit").length;
 const stat = reviewed.length ? `<div class="rv-stat">已覆盤 ${reviewed.length} 卦・${hit} 卦應驗</div>` : "";
-$("histList").innerHTML = `<div id="cloudStat"></div>` + stat + h.map((x, i) => {
+const showAll = histExpanded || h.length <= 5;
+const items = showAll ? h : h.slice(0, 5);
+const toggleBtn = h.length > 5 ? `<button class="hist-toggle" id="histToggle">${showAll ? "收合" : "展開全部 " + h.length + " 筆"}</button>` : "";
+$("histList").innerHTML = `<div id="cloudStat"></div>` + stat + items.map((x, i) => {
 let act;
 if (x.rv) act = `<span class="rv-badge ${x.rv.r}">${RV_LABEL[x.rv.r]}</span>`;
 else if (now - x.at >= RV_DUE) act = `<button class="rv-btn" onclick="openReview(${i})">寫覆盤</button>`;
 else act = `<span class="rv-wait">${Math.ceil((RV_DUE - (now - x.at)) / 86400000)}天後可覆盤</span>`;
 return `<div class="hist-item${x.ai ? " solved" : ""}"><span class="t">${new Date(x.at).toLocaleString("zh-TW")}</span><b>${guaLinesHTML(x.ben, null, true)} ${x.ben}</b> → ${x.zhi}<br><span style="color:var(--ink2);font-size:.88rem;">${esc(x.q.slice(0, 40))}</span><div style="margin-top:6px;">${act}</div></div>`;
-}).join("");
+}).join("") + toggleBtn;
+const tg = $("histToggle");
+if (tg) tg.onclick = () => { histExpanded = !histExpanded; renderHist(); };
 renderStats();
 }
+$("histClear").onclick = () => {
+  if (!confirm("確定清除全部占問記錄？此動作無法復原。")) return;
+  localStorage.removeItem("yiwen_hist");
+  histExpanded = false;
+  renderHist();
+  toast("占問記錄已清除");
+};
 let _rvIdx = null;
 function openReview(i) {
 _rvIdx = i;
@@ -798,11 +811,11 @@ initPush();
 
 /* ---------- 底部分類導航 ---------- */
 const TABMAP = {
-  ask: ["askCard", "lifeTeaser", "guaCard", "aiCard"],
+  ask: ["askCard", "lifeTeaser", "guaCard", "aiCard", "theoryCard"],
   qian: ["qianCard"],
   daily: ["dailyCardSec"],
+  fate: ["lifeCard"],
   hist: ["histCard"],
-  more: ["theoryCard", "lifeCard"],
 };
 let curTab = "ask";
 function switchTab(name) {
@@ -824,7 +837,7 @@ const _showEl = showEl;
 showEl = function (el) { el.dataset.shown = "1"; _showEl(el); };
 switchTab("ask");
 $("lifeTeaser").style.display = "";
-$("lifeTeaser").onclick = () => { switchTab("more"); setTimeout(() => document.getElementById("lifeCard").scrollIntoView({ behavior: "smooth" }), 80); };
+$("lifeTeaser").onclick = () => { switchTab("fate"); setTimeout(() => document.getElementById("lifeCard").scrollIntoView({ behavior: "smooth" }), 80); };
 
 /* ---------- 求籤（單爻占筮） ---------- */
 $("qianBtn").addEventListener("click", async () => {

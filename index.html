@@ -63,6 +63,14 @@ textarea::placeholder{font-size:.88rem; color:#a09a89; line-height:30px;}
 .life-reading b::before{content:"◈ "; color:var(--cinnabar);}
 .life-reading p{margin:8px 0 0; font-size:.93rem;}
 .life-reading .how{font-size:.8rem; color:var(--ink2); border-top:1px dashed var(--line); padding-top:8px;}
+/* 記錄工具 */
+.hist-tools{text-align:right; margin:-6px 0 8px;}
+.mini-btn{border:1px solid var(--line); background:transparent; border-radius:12px;
+  padding:4px 14px; font-size:.78rem; font-family:inherit; color:var(--ink2); cursor:pointer;}
+.mini-btn:active{background:var(--paper2);}
+.hist-toggle{display:block; width:100%; border:1px dashed var(--line); background:transparent;
+  border-radius:8px; padding:10px; font-size:.85rem; font-family:inherit; color:var(--brand);
+  cursor:pointer; margin-top:8px; letter-spacing:.1em;}
 /* 卷軸 */
 .scroll-wrap{margin:4px 0 14px;}
 .scroll-rod{height:15px; border-radius:8px; margin:0 2px; position:relative;
@@ -507,11 +515,6 @@ header.top{position:relative;}
   <button class="btn ghost" id="askAgain" style="display:none;">再問一卦</button>
 </div>
 
-<div class="card plain" id="histCard" style="display:none;">
-  <h2><span class="vol">餘卷</span><span class="t">占問記錄</span></h2>
-  <div id="histList"></div>
-</div>
-
 <div class="card plain" id="theoryCard">
   <h2><span class="vol">卷四</span><span class="t">易經原理</span></h2>
   <div class="principle">
@@ -526,6 +529,12 @@ header.top{position:relative;}
     <details><summary>用什麼心態問</summary>
     <p>易經是流傳三千年的決策參考書，不是命定之言。卦象給你換個角度看事情，決定永遠在你手上。</p></details>
   </div>
+</div>
+
+<div class="card plain" id="histCard" style="display:none;">
+  <h2><span class="vol">餘卷</span><span class="t">占問記錄</span></h2>
+  <div class="hist-tools"><button id="histClear" class="mini-btn">清除全部</button></div>
+  <div id="histList"></div>
 </div>
 
 <section class="card lifecard" id="lifeCard">
@@ -566,10 +575,10 @@ header.top{position:relative;}
   <button data-tab="ask" class="on"><span class="ti">問</span><span class="tl">問事</span></button>
   <button data-tab="qian"><span class="ti">籤</span><span class="tl">求籤</span></button>
   <button data-tab="daily"><span class="ti">日</span><span class="tl">每日</span></button>
+  <button data-tab="fate"><span class="ti">運</span><span class="tl">運勢</span></button>
   <button data-tab="hist"><span class="ti">記</span><span class="tl">記錄</span></button>
-  <button data-tab="more"><span class="ti">餘</span><span class="tl">更多</span></button>
 </nav>
-<script src="app.js?v=20261010m"></script>
+<script src="app.js?v=20261010n"></script>
 
 </body>
 </html>
