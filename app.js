@@ -86,7 +86,8 @@ fetch("data/gua_symbols.json").then(r => r.json()),
 fetch("data/baihua.json").then(r => r.json()).catch(() => ({})),
 ]);
 GUA = g; SYM = s; BH = b;
-buildPick(); renderHist(); renderQuota(); renderDaily();
+buildPick(); renderHist();
+if (typeof qijuInit === "function") qijuInit(); renderQuota(); renderDaily();
 const _due = getHist().filter(x => !x.rv && Date.now() - x.at >= RV_DUE).length;
 if (_due > 0) setTimeout(() => toast(`有 ${_due} 卦可以寫覆盤了`), 2600);
 const yr = $("year"); if (yr) yr.textContent = new Date().getFullYear();
@@ -822,7 +823,7 @@ initPush();
 const TABMAP = {
   ask: ["askCard", "lifeTeaser", "guaCard", "aiCard", "theoryCard"],
   qian: ["qianCard"],
-  daily: ["dailyCardSec"],
+  daily: ["dailyCardSec", "qijuCard"],
   fate: ["lifeCard"],
   hist: ["histCard"],
 };
