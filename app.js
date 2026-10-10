@@ -988,6 +988,20 @@ function smoothLine(x, pts) {
       p2.x, p2.y);
   }
 }
+function animateLife() {
+  const t0 = performance.now(), DUR = 2000;
+  let chimed = false;
+  function frame(now) {
+    const p = Math.min(1, (now - t0) / DUR);
+    LIFE.animP = p;
+    drawLife();
+    if (p >= 0.85 && !chimed) { chimed = true; lifeChime(); }
+    if (p < 1) requestAnimationFrame(frame);
+    else { LIFE.animP = 1; drawLife(); }
+  }
+  requestAnimationFrame(frame);
+}
+const easeOut = p => 1 - Math.pow(1 - p, 3);
 function drawLife() {
   if (!LIFE) return;
   const cv = $("lifeCanvas");
@@ -1002,37 +1016,46 @@ function drawLife() {
 }
 function drawCurve(x, W, H) {
   const padL = 12, padR = 12, padT = 34, padB = 36;
+  const ap = (LIFE.animP == null) ? 1 : LIFE.animP;
+  const e = easeOut(Math.min(1, ap));
   const py = v => padT + (100 - v) / 100 * (H - padT - padB);
   const px = i => padL + i / 90 * (W - padL - padR);
   const pts = LIFE.years.map((d, i) => ({ x: px(i), y: py(d.sc) }));
   // 遠山兩層（淡墨）
+  x.save(); x.globalAlpha = Math.min(1, ap * 1.8);
   [[0.42, 20, "rgba(30,58,47,.07)"], [0.62, 10, "rgba(30,58,47,.10)"]].forEach(([k, off, col]) => {
     const rp = LIFE.years.map((d, i) => ({ x: px(i), y: py(d.sc * k + off) }));
     smoothLine(x, rp);
     x.lineTo(rp[90].x, H - padB); x.lineTo(rp[0].x, H - padB); x.closePath();
     x.fillStyle = col; x.fill();
   });
-  // 雲霧
+  x.restore();
+  // 雲霧（後現）
+  x.save(); x.globalAlpha = Math.max(0, Math.min(1, (ap - 0.45) * 2.2));
   [[0.22, 0.40, 0.30], [0.58, 0.28, 0.34], [0.82, 0.48, 0.26]].forEach(([fx, fy, fw]) => {
     const fg = x.createRadialGradient(W * fx, H * fy, 0, W * fx, H * fy, W * fw / 2);
     fg.addColorStop(0, "rgba(250,247,238,.6)"); fg.addColorStop(1, "rgba(250,247,238,0)");
     x.fillStyle = fg; x.fillRect(0, 0, W, H);
   });
-  // 山水填色
+  x.restore();
+  // 山水填色＋曲線（progressive 繪製）
+  const nPts = Math.max(2, Math.ceil(pts.length * e));
+  const sub = pts.slice(0, nPts);
   const gr = x.createLinearGradient(0, padT, 0, H - padB);
   gr.addColorStop(0, "rgba(176,58,46,.16)"); gr.addColorStop(1, "rgba(176,58,46,0)");
-  smoothLine(x, pts);
-  x.lineTo(pts[90].x, H - padB); x.lineTo(pts[0].x, H - padB); x.closePath();
+  smoothLine(x, sub);
+  x.lineTo(sub[nPts - 1].x, H - padB); x.lineTo(sub[0].x, H - padB); x.closePath();
   x.fillStyle = gr; x.fill();
-  // 曲線
-  smoothLine(x, pts);
+  smoothLine(x, sub);
   x.strokeStyle = "#b03a2e"; x.lineWidth = 2.6; x.lineJoin = "round"; x.stroke();
-  // 高峰標註
+  // 高峰標註（動畫走完才彈出）
+  if (ap >= 0.98) {
+  const pop = Math.min(1, (ap - 0.98) / 0.02);
   x.textAlign = "center"; x.font = "12px serif";
   LIFE.peaks.forEach(p => {
     const d = LIFE.years[p];
     x.fillStyle = "#b03a2e";
-    x.beginPath(); x.arc(px(p), py(d.sc), 4.5, 0, 7); x.fill();
+    x.beginPath(); x.arc(px(p), py(d.sc), 4.5 * (0.5 + 0.5 * pop), 0, 7); x.fill();
     x.fillStyle = "#8a8474";
     x.fillText(`${p}歲・${d.g.name}`, px(p), py(d.sc) - 12);
   });
@@ -1046,6 +1069,7 @@ function drawCurve(x, W, H) {
   x.beginPath(); x.roundRect(bx, 2, tw, 22, 5); x.fill();
   x.fillStyle = "#fff"; x.font = "13px serif";
   x.fillText("今", bx + tw / 2, 18);
+  }
   // 選中年
   if (LIFE.sel != null) {
     const d = LIFE.years[LIFE.sel];
@@ -1131,6 +1155,54 @@ function selectLife(i) {
     <div style="color:var(--ink2);font-size:.85rem;">${d.moving > 0 ? "動盪 " + d.moving + " 爻" : "平穩無動爻"}・運勢 ${d.c}</div>`;
   drawLife();
 }
+/* ---------- 命運格局解讀 ---------- */
+function lifePattern() {
+  const ys = LIFE.years;
+  const avg = (x, y) => { let s = 0, n = 0; for (let i = x; i <= y; i++) { s += ys[i].sc; n++; } return s / n; };
+  const early = avg(0, 29), mid = avg(30, 59), late = avg(60, 90);
+  const vals = ys.map(d => d.sc);
+  const vol = Math.max(...vals) - Math.min(...vals);
+  if (late > mid + 2 && mid > early + 2) return ["步步高升型", "你的山水一路向上，越走越高。時間是你的朋友，急什麼。"];
+  if (mid > early + 8 && mid > late + 8) return ["中年高峰型", "人生最高峰落在中年，前半場積累，後半場收成，節奏剛剛好。"];
+  if (early > mid + 5 && early > late + 5) return ["先盛後穩型", "早年得意，起點比人高。記得為後半場留白，守得住才是贏。"];
+  if (vol > 38) return ["波瀾壯闊型", "起伏比別人大，但每一次低谷都墊高了下一波。高峰值得，低谷別怕。"];
+  return ["細水長流型", "沒有大起大落，穩穩走就是你的贏法。別人追浪，你走自己的路。"];
+}
+function lifeReadingHTML() {
+  const [name, desc] = lifePattern();
+  return `<div class="life-reading"><b>命運格局・${name}</b><p>${desc}</p><p class="how">怎麼看：曲線是運勢起伏・<span style="color:var(--cinnabar)">紅點</span>是人生高峰・<span style="color:var(--cinnabar)">「今」</span>是你現在的位置・點曲線看那一年</p></div>`;
+}
+/* ---------- 命運山水音效（WebAudio 合成） ---------- */
+let _lifeAC = null;
+function lifeAC() {
+  if (!_lifeAC) _lifeAC = new (window.AudioContext || window.webkitAudioContext)();
+  if (_lifeAC.state === "suspended") _lifeAC.resume();
+  return _lifeAC;
+}
+function lifeGong() {
+  try {
+    const ac = lifeAC(), t = ac.currentTime;
+    [[196, .5], [294, .28], [392, .16]].forEach(([f, g]) => {
+      const o = ac.createOscillator(), gn = ac.createGain();
+      o.type = "sine"; o.frequency.value = f;
+      gn.gain.setValueAtTime(0.0001, t);
+      gn.gain.exponentialRampToValueAtTime(g * 0.5, t + 0.03);
+      gn.gain.exponentialRampToValueAtTime(0.0001, t + 2.2);
+      o.connect(gn).connect(ac.destination); o.start(t); o.stop(t + 2.3);
+    });
+  } catch (e) {}
+}
+function lifeChime() {
+  try {
+    const ac = lifeAC(), t = ac.currentTime;
+    const o = ac.createOscillator(), gn = ac.createGain();
+    o.type = "triangle"; o.frequency.value = 880;
+    gn.gain.setValueAtTime(0.0001, t);
+    gn.gain.exponentialRampToValueAtTime(0.22, t + 0.02);
+    gn.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+    o.connect(gn).connect(ac.destination); o.start(t); o.stop(t + 1);
+  } catch (e) {}
+}
 function lifeGo() {
   const v = $("birthDate").value;
   if (!v) { toast("請先選擇出生日期"); return; }
@@ -1141,6 +1213,9 @@ function lifeGo() {
   const mingTxt = MING_TXT[mg.name] || "";
   $("lifeMing").innerHTML = `<div style="color:var(--ink2);font-size:.85rem;letter-spacing:.2em;">你的命卦</div><div style="font-size:1.35rem;letter-spacing:.12em;margin:6px 0;"><b>第${mg.n}卦・${mg.name}</b></div>${guaLinesHTML(mg.name)}<div class="ming-txt">${esc(mingTxt)}</div><div style="color:var(--ink2);font-size:.9rem;margin-top:6px;">${esc(mg.guaci)}</div>`;
   ["lifeSwitch", "lifeCanvas", "lifePick", "lifeInfo", "lifeShare"].forEach(id => $(id).style.display = "");
+  $("lifeReading").innerHTML = lifeReadingHTML(); $("lifeReading").style.display = "";
+  lifeGong();
+  animateLife();
   $("lifeBack").style.display = "none";
   document.querySelectorAll("#lifeSwitch button").forEach(x => x.classList.toggle("on", x.dataset.v === "curve"));
   buildLifeSel();
@@ -1178,6 +1253,7 @@ function wrapText(x, text, maxW) {
 }
 $("lifeShare").addEventListener("click", () => {
   if (!LIFE) return;
+  LIFE.animP = 1;
   const W = 1080, H = 1350;
   const cv = document.createElement("canvas"); cv.width = W; cv.height = H;
   const x = cv.getContext("2d");
