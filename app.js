@@ -9,6 +9,7 @@ async function loadMe() {
     ME = await r.json();
   } catch (e) { ME = { loggedIn: false }; }
   renderAuth(); renderQuota();
+  if (ME && ME.loggedIn) { syncHistory(); }
 }
 function renderAuth() {
   const box = $("authBox");
@@ -382,15 +383,47 @@ const esc = s => String(s == null? "": s).replace(/[&<>"]/g, c => ({ "&": "&amp;
 /* ---------- 歷史 ---------- */
 function saveHist() {
 let h = []; try { h = JSON.parse(localStorage.getItem("yiwen_hist") || "[]");} catch {}
-h.unshift({ q: cur.question, ben: cur.ben.name, zhi: cur.zhi.name, at: cur.at, ai: cur.ai || null});
+const entry = { q: cur.question, topic: curTopic || "", ben: cur.ben.name, zhi: cur.zhi.name, at: cur.at, ai: cur.ai || null};
+h.unshift(entry);
 setHist(h);
 renderHist();
+if (ME && ME.loggedIn) {
+fetch(API_BASE + "/api/history/add", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ item: entry }) }).catch(() => {});
+}
+}
+/* 登入後把本地歷史同步上雲（每頁載入一次） */
+let _synced = false;
+async function syncHistory() {
+if (_synced || !(ME && ME.loggedIn)) return;
+_synced = true;
+try {
+const h = getHist();
+if (!h.length) return;
+await fetch(API_BASE + "/api/history/sync", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ items: h }) });
+} catch (e) {}
 }
 /* ---------- 覆盤回顧 ---------- */
 const RV_DUE = 30 * 86400 * 1000;
 const RV_LABEL = { hit: "應驗了", part: "部分應驗", miss: "沒發生", pending: "還在發展中" };
 function getHist() { try { return JSON.parse(localStorage.getItem("yiwen_hist") || "[]");} catch { return []; } }
 function setHist(h) { localStorage.setItem("yiwen_hist", JSON.stringify(h.slice(0, 30))); }
+let _statsCache = null;
+async function renderStats() {
+const el = $("cloudStat");
+if (!el || !(ME && ME.loggedIn)) { if (el) el.innerHTML = ""; return; }
+try {
+if (!_statsCache) {
+const r = await fetch(API_BASE + "/api/stats", { credentials: "include" });
+_statsCache = await r.json();
+}
+const s = _statsCache;
+if (!s || !s.total) { el.innerHTML = ""; return; }
+const gua = (s.topGua || []).map(g => `${g.name}×${g.c}`).join("、");
+const tp = (s.topics || []).map(g => `${g.name}×${g.c}`).join("、");
+el.innerHTML = `<div class="rv-stat">☁️ 雲端同步中・累計占卦 ${s.total} 次` +
+(gua ? `<br>最常得：${gua}` : "") + (tp ? `<br>常問主題：${tp}` : "") + `</div>`;
+} catch (e) {}
+}
 function renderHist() {
 const h = getHist();
 if (!h.length) return;
@@ -399,13 +432,14 @@ const now = Date.now();
 const reviewed = h.filter(x => x.rv);
 const hit = reviewed.filter(x => x.rv.r === "hit").length;
 const stat = reviewed.length ? `<div class="rv-stat">已覆盤 ${reviewed.length} 卦・${hit} 卦應驗</div>` : "";
-$("histList").innerHTML = stat + h.map((x, i) => {
+$("histList").innerHTML = `<div id="cloudStat"></div>` + stat + h.map((x, i) => {
 let act;
 if (x.rv) act = `<span class="rv-badge ${x.rv.r}">${RV_LABEL[x.rv.r]}</span>`;
 else if (now - x.at >= RV_DUE) act = `<button class="rv-btn" onclick="openReview(${i})">寫覆盤</button>`;
 else act = `<span class="rv-wait">${Math.ceil((RV_DUE - (now - x.at)) / 86400000)}天後可覆盤</span>`;
 return `<div class="hist-item${x.ai ? " solved" : ""}"><span class="t">${new Date(x.at).toLocaleString("zh-TW")}</span><b>${guaLinesHTML(x.ben, null, true)} ${x.ben}</b> → ${x.zhi}<br><span style="color:var(--ink2);font-size:.88rem;">${esc(x.q.slice(0, 40))}</span><div style="margin-top:6px;">${act}</div></div>`;
 }).join("");
+renderStats();
 }
 let _rvIdx = null;
 function openReview(i) {

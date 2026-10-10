@@ -441,6 +441,32 @@ export default {
       }
     }
 
+    /* ===== 占問雲端同步＋統計 ===== */
+    if ((path === "/api/history/sync" || path === "/api/history/add") && req.method === "POST") {
+      const uid = await verifySession(env, getCookie(req, "yiwen_sess"));
+      if (!uid) return json(req, { error: "auth" }, 401);
+      try {
+        const b = await req.json();
+        const items = path.endsWith("/sync") ? (b.items || []).slice(0, 100) : [b.item || b];
+        for (const it of items) {
+          if (!it || !it.at) continue;
+          await env.DB.prepare("INSERT OR IGNORE INTO divinations (user_id, question, topic, ben, zhi, ai, created_at) VALUES (?,?,?,?,?,?,?)")
+            .bind(uid, String(it.q || "").slice(0, 500), String(it.topic || "").slice(0, 20),
+              String(it.ben || "").slice(0, 4), String(it.zhi || "").slice(0, 4),
+              it.ai ? JSON.stringify(it.ai).slice(0, 4000) : null, it.at | 0).run();
+        }
+        return json(req, { ok: true, n: items.length });
+      } catch (e) { return json(req, { error: "db" }, 500); }
+    }
+    if (path === "/api/stats" && req.method === "GET") {
+      const uid = await verifySession(env, getCookie(req, "yiwen_sess"));
+      if (!uid) return json(req, { error: "auth" }, 401);
+      const total = await env.DB.prepare("SELECT COUNT(*) c FROM divinations WHERE user_id = ?").bind(uid).first();
+      const topGua = await env.DB.prepare("SELECT ben AS name, COUNT(*) c FROM divinations WHERE user_id = ? AND ben <> '' GROUP BY ben ORDER BY c DESC LIMIT 3").bind(uid).all();
+      const topics = await env.DB.prepare("SELECT topic AS name, COUNT(*) c FROM divinations WHERE user_id = ? AND topic <> '' GROUP BY topic ORDER BY c DESC").bind(uid).all();
+      return json(req, { total: total.c, topGua: topGua.results || [], topics: topics.results || [] });
+    }
+
     /* ===== 推播訂閱 ===== */
     if (path === "/api/push/subscribe" && req.method === "POST") {
       try {
