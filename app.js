@@ -1194,10 +1194,23 @@ function lifeStoryHTML() {
     const open = st.open.replace("{by}", by).replace("{ming}", ming);
     let trend;
     const span = peak.sc - valley.sc;
-    if (span >= 30) trend = `這${len}年大起大落，${peak.age}歲行「${peak.g.name}」卦站上高處，${valley.age}歲遇「${valley.g.name}」卦跌入低谷，像兩座對望的山。`;
-    else if (prevAvg !== null && avg > prevAvg + 4) trend = `這${len}年一路向上，${peak.age}歲那年「${peak.g.name}」卦，是這段路的最高處。`;
-    else if (prevAvg !== null && avg < prevAvg - 4) trend = `這${len}年走下坡，${valley.age}歲那年「${valley.g.name}」卦最低，記得守，別亂動。`;
-    else trend = `這${len}年沒有大風大浪，「${peak.g.name}」卦相伴，是細水長流的日子。`;
+    const vi = si % 3;
+    if (span >= 30) trend = [
+      `這${len}年大起大落，${peak.age}歲行「${peak.g.name}」卦站上高處，${valley.age}歲遇「${valley.g.name}」卦跌入低谷，像兩座對望的山。`,
+      `這${len}年像坐雲霄飛車，${peak.age}歲「${peak.g.name}」卦的高，和${valley.age}歲「${valley.g.name}」卦的低，你都嘗過了。`,
+      `高高低低的一段路，${peak.age}歲「${peak.g.name}」卦給你掌聲，${valley.age}歲「${valley.g.name}」卦教你謙卑。`][vi];
+    else if (prevAvg !== null && avg > prevAvg + 4) trend = [
+      `這${len}年一路向上，${peak.age}歲那年「${peak.g.name}」卦，是這段路的最高處。`,
+      `坡度雖緩，但一直在往上，${peak.age}歲「${peak.g.name}」卦那年，你站得比十年前更高。`,
+      `這${len}年是上坡路，走得慢但走得穩，${peak.age}歲「${peak.g.name}」卦是給你的獎章。`][vi];
+    else if (prevAvg !== null && avg < prevAvg - 4) trend = [
+      `這${len}年走下坡，${valley.age}歲那年「${valley.g.name}」卦最低，記得守，別亂動。`,
+      `這${len}年是退潮期，${valley.age}歲「${valley.g.name}」卦那年水最淺，沉住氣，等水回來。`,
+      `低調的${len}年，${valley.age}歲「${valley.g.name}」卦提醒你：收，是為了下一次放。`][vi];
+    else trend = [
+      `這${len}年沒有大風大浪，「${peak.g.name}」卦相伴，是細水長流的日子。`,
+      `這${len}年步子不大，但每一步都踩得實，「${peak.g.name}」卦說，慢就是快。`,
+      `日子平平地過，「${peak.g.name}」卦在這十年裡，是你安靜的底氣。`][vi];
     prevAvg = avg;
     const here = (nowA >= st.a0 && nowA <= st.a1) ? '<span class="here">你正在這裡</span>' : "";
     const repGua = peak.g.name;
