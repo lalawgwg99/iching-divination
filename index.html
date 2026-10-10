@@ -63,25 +63,20 @@ textarea::placeholder{font-size:.88rem; color:#a09a89; line-height:30px;}
 .life-reading b::before{content:"◈ "; color:var(--cinnabar);}
 .life-reading p{margin:8px 0 0; font-size:.93rem;}
 .life-reading .how{font-size:.8rem; color:var(--ink2); border-top:1px dashed var(--line); padding-top:8px;}
-/* 每日一局 */
+/* 每日一局（純SVG） */
 .qj-wrap{position:relative; width:100%; max-width:340px; margin:10px auto; aspect-ratio:910/1010;}
 .qj-svg{position:absolute; inset:0; width:100%; height:100%;}
-.qj-pieces{position:absolute; left:6.04%; right:6.04%; top:5.45%; bottom:5.45%;}
-.qj-p{position:absolute; width:11.9%; aspect-ratio:1/1; transform:translate(-50%,-50%);
-  border-radius:50%; background:#fdfbf4; border:2px solid #2f4f3e;
-  display:flex; align-items:center; justify-content:center;
-  font-size:clamp(18px,6.4vw,26px); font-weight:700; font-family:"Songti TC","Noto Serif TC",serif;
-  cursor:pointer; user-select:none; -webkit-tap-highlight-color:transparent;
-  box-shadow:0 2px 4px rgba(0,0,0,.18);}
-.qj-p.red{color:#b5372a; border-color:#b5372a;}
-.qj-p.blk{color:#2b2b2b;}
-.qj-p.sel{outline:3px solid #b5372a; outline-offset:2px;}
-.qj-p.hintp{animation:qjHint 1s ease-in-out infinite;}
-@keyframes qjHint{50%{box-shadow:0 0 0 8px rgba(181,55,42,.35);}}
-.qj-p.shake{animation:qjShake .4s;}
-@keyframes qjShake{25%{margin-left:-6px;}50%{margin-left:6px;}75%{margin-left:-4px;}}
-.qj-dot{position:absolute; width:9%; aspect-ratio:1/1; transform:translate(-50%,-50%);
-  border-radius:50%; background:rgba(181,55,42,.55); cursor:pointer;}
+.qj-p{cursor:pointer;}
+.qj-p circle{fill:#fdfbf4; stroke:#2f4f3e; stroke-width:3;}
+.qj-p.red circle{stroke:#b5372a;}
+.qj-p.red text{fill:#b5372a;}
+.qj-p.blk text{fill:#2b2b2b;}
+.qj-p text{font-size:48px; font-weight:700; text-anchor:middle; dominant-baseline:central;
+  font-family:"Songti TC","Noto Serif TC",serif; user-select:none; pointer-events:none;}
+.qj-p.sel circle{stroke:#b5372a; stroke-width:6;}
+.qj-p.hintp circle{animation:qjHintC 1.1s ease-in-out infinite;}
+@keyframes qjHintC{50%{stroke-width:9;}}
+.qj-dot{fill:rgba(181,55,42,.5); cursor:pointer;}
 .qj-msg{min-height:1.5em; text-align:center; color:#b5372a; font-size:.9rem; margin:6px 0;}
 .qj-actions{display:flex; gap:10px; justify-content:center; margin:4px 0 2px;}
 .qj-gua{margin-top:12px; padding:14px 16px; background:#fffdf8; border:1px solid var(--line); border-radius:10px; text-align:center;}
@@ -621,7 +616,7 @@ header.top{position:relative;}
   <button data-tab="hist"><span class="ti">記</span><span class="tl">記錄</span></button>
 </nav>
 <script src="qixiang.js?v=20261010a"></script>
-<script src="qipan.js?v=20261010b"></script>
+<script src="qipan.js?v=20261010c"></script>
 <script src="app.js?v=20261010q"></script>
 
 </body>
