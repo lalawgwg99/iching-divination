@@ -45,9 +45,10 @@ textarea::placeholder{font-size:.88rem; color:#a09a89; line-height:30px;}
 .modes button.on{background:var(--brand); color:#fff; border-color:var(--brand);}
 /* 底部分類導航 */
 .wrap{padding-bottom:96px;}
-#tabbar{position:fixed; left:0; right:0; bottom:0; z-index:50;
-  display:flex; background:rgba(246,242,232,.96); backdrop-filter:blur(8px);
-  border-top:1px solid var(--line); padding:6px 4px calc(6px + env(safe-area-inset-bottom));}
+#tabbar{position:fixed; left:0; right:0; bottom:0; width:100%; z-index:50;
+  display:flex; background:var(--paper); border-top:1px solid var(--line);
+  padding:6px 4px calc(6px + env(safe-area-inset-bottom));
+  transform:translateZ(0); -webkit-transform:translateZ(0);}
 #tabbar button{flex:1; background:none; border:none; cursor:pointer; font-family:inherit;
   display:flex; flex-direction:column; align-items:center; gap:3px; padding:6px 0;
   color:var(--ink2); -webkit-tap-highlight-color:transparent;}
@@ -484,7 +485,7 @@ header.top{position:relative;}
 </footer>
 </div>
 <canvas id="shareCanvas" width="1080" height="1350" style="display:none;"></canvas>
-<script src="app.js?v=20261010e"></script>
+<script src="app.js?v=20261010f"></script>
 <nav id="tabbar">
   <button data-tab="ask" class="on"><span class="ti">問</span><span class="tl">問事</span></button>
   <button data-tab="qian"><span class="ti">籤</span><span class="tl">求籤</span></button>
