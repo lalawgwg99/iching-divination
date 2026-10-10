@@ -82,7 +82,7 @@ function win(fresh) {
   g.style.display = '';
   g.innerHTML = `<div class="qj-win">將死！第 ${S.puz.id} 局・已解</div>
     <div class="qj-gualine">本局配卦・第${S.puz.gua}卦「${S.puz.guaName}」</div>
-    <p>${S.puz.line}</p>`;
+    <div class="qj-lesson"><b>觀變課</b><p>${S.puz.lesson || S.puz.line}</p></div>`;
   if (fresh) g.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
@@ -92,7 +92,7 @@ function load() {
   S.board = QX.parseFEN(S.puz.fen);
   S.sel = null; S.dots = []; S.hintOn = false;
   S.done = localStorage.getItem('yiwen_qiju_done') === S.dayKey;
-  document.getElementById('qjHint').textContent = `第 ${S.puz.id} 局・紅先・一步殺將`;
+  document.getElementById('qjHint').textContent = `第 ${S.puz.id} 局・紅先・一步觀變`;
   if (S.done) {
     S.board = QX.applyMove(S.board, { fx: S.puz.sol.fx, fy: S.puz.sol.fy, tx: S.puz.sol.tx, ty: S.puz.sol.ty, cap: null });
     drawAll(); win(false);

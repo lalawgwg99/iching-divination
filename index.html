@@ -83,6 +83,10 @@ textarea::placeholder{font-size:.88rem; color:#a09a89; line-height:30px;}
 .qj-win{color:var(--cinnabar); font-size:1.05rem; letter-spacing:.2em; margin-bottom:6px;}
 .qj-gualine{color:var(--brand); font-size:.9rem; letter-spacing:.1em; margin-bottom:8px;}
 .qj-gua p{margin:0; font-size:.93rem; color:var(--ink); text-align:justify;}
+.qj-lesson{margin-top:10px; padding:12px 14px; background:#f5efe0; border-radius:8px; text-align:left;}
+.qj-lesson b{display:block; color:var(--brand); font-size:.82rem; letter-spacing:.3em; text-indent:.3em; margin-bottom:6px; text-align:center;}
+.qj-lesson b::before{content:"◈ "; color:var(--cinnabar);}
+.qj-lesson p{margin:0; font-size:.92rem; line-height:1.8; color:var(--ink); text-align:justify;}
 /* 三維指引 */
 .sz-box{margin-top:12px; padding:14px 16px; background:#fffdf8; border:1px solid var(--line); border-radius:10px;}
 .sz-box > b{color:var(--brand); font-size:.9rem; letter-spacing:.3em; text-indent:.3em; display:block; margin-bottom:6px; text-align:center;}
@@ -561,7 +565,8 @@ header.top{position:relative;}
 </div>
 
 <section class="card plain" id="qijuCard">
-  <h2><span class="vol">棋局</span><span class="t">每日一局</span></h2>
+  <h2><span class="vol">棋觀</span><span class="t">觀變一局</span></h2>
+  <div class="hint" style="margin-bottom:6px;">下棋即觀變：觀局勢之變，算三步之後。每天一局，練你的觀變之眼。</div>
   <div class="hint" id="qjHint">載入中…</div>
   <div class="qj-wrap" id="qjBoard"></div>
   <div class="qj-msg" id="qjMsg"></div>
@@ -616,7 +621,7 @@ header.top{position:relative;}
   <button data-tab="hist"><span class="ti">記</span><span class="tl">記錄</span></button>
 </nav>
 <script src="qixiang.js?v=20261010a"></script>
-<script src="qipan.js?v=20261010c"></script>
+<script src="qipan.js?v=20261010d"></script>
 <script src="app.js?v=20261010q"></script>
 
 </body>
