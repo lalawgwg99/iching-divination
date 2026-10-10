@@ -1,5 +1,6 @@
 // 易問 v2 Worker — AI 解卦＋LINE 登入＋綠界金流＋額度系統
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
+const DAILY_GUA = [{"n":1,"name":"乾","guaci":"乾：元亨。利貞。","qs":"天行健，君子以自強不息——該出手時就出手。"},{"n":2,"name":"坤","guaci":"坤：元亨。利牝馬之貞。君子有攸往，先迷後得主。利西南得朋，東北喪朋。安貞，吉。","qs":"厚德載物，先守後攻，柔軟是最強的韌性。"},{"n":3,"name":"屯","guaci":"屯：元亨，利貞。勿用有攸往，利建侯。","qs":"種子破土前都在黑暗裡，別急。"},{"n":4,"name":"蒙","guaci":"蒙：亨。匪我求童蒙，童蒙求我。初筮告，再三瀆，瀆則不告。利貞。","qs":"不懂就問，是最快的路。"},{"n":5,"name":"需","guaci":"需：有孚，光亨。貞吉，利涉大川。","qs":"該等的時候等，本身就是實力。"},{"n":6,"name":"訟","guaci":"訟：有孚，窒，惕，中吉，終凶。利見大人，不利涉大川。","qs":"贏了道理輸了關係，不划算。"},{"n":7,"name":"師","guaci":"師：貞丈人吉，无咎。","qs":"帶人先帶心，號令要清楚。"},{"n":8,"name":"比","guaci":"比：吉。原筮元永貞，无咎。不寧方來，後夫凶。","qs":"選對夥伴，事半功倍。"},{"n":9,"name":"小畜","guaci":"小畜：亨。密雲不雨，自我西郊。","qs":"小步前進，別想一次到位。"},{"n":10,"name":"履","guaci":"履虎尾，不咥人，亨。","qs":"禮數做足，貴人自來。"},{"n":11,"name":"泰","guaci":"泰：小往大來，吉亨。","qs":"好運來時，要敢接。"},{"n":12,"name":"否","guaci":"否之匪人，不利君子貞，大往小來。","qs":"低潮時不亂動，就是贏。"},{"n":13,"name":"同人","guaci":"同人于野，亨。利涉大川，利君子貞。","qs":"同頻的人會互相照亮。"},{"n":14,"name":"大有","guaci":"大有：元亨。","qs":"得到越多，越要低調。"},{"n":15,"name":"謙","guaci":"謙：亨，君子有終。","qs":"真本事不需要張揚。"},{"n":16,"name":"豫","guaci":"豫：利建侯行師。","qs":"開心的時候，想想風險。"},{"n":17,"name":"隨","guaci":"隨：元亨。利貞。无咎。","qs":"順勢而為，比逆流划船輕鬆。"},{"n":18,"name":"蠱","guaci":"蠱：元亨。利涉大川。先甲三日，後甲三日。","qs":"該修的現在修，別拖。"},{"n":19,"name":"臨","guaci":"臨：元亨。利貞。至于八月有凶。","qs":"位置越高，姿態越低。"},{"n":20,"name":"觀","guaci":"觀：盥而不薦，有孚顒若。","qs":"先看清楚，再出手。"},{"n":21,"name":"噬嗑","guaci":"噬嗑：亨。利用獄。","qs":"該斷就斷，拖只會更痛。"},{"n":22,"name":"賁","guaci":"賁：亨。小利有攸往。","qs":"門面顧好，是對人的尊重。"},{"n":23,"name":"剝","guaci":"剝：不利。有攸往。","qs":"逆風時，先保本。"},{"n":24,"name":"復","guaci":"復：亨。出入无疾，朋來无咎。反復其道，七日來復，利有攸往。","qs":"跌倒了，爬起來就是新的開始。"},{"n":25,"name":"无妄","guaci":"无妄：元亨。利貞。其匪正有眚，不利有攸往。","qs":"別算計太多，真誠最省力。"},{"n":26,"name":"大畜","guaci":"大畜：利貞，不家食吉，利涉大川。","qs":"存夠了本事，就等風來。"},{"n":27,"name":"頤","guaci":"頤：貞吉。觀頤，自求口實。","qs":"照顧好身體，才有本錢談未來。"},{"n":28,"name":"大過","guaci":"大過：棟橈，利有攸往，亨。","qs":"非常時期，別用平常心態。"},{"n":29,"name":"坎","guaci":"習坎：有孚，維心亨。行有尚。","qs":"關關難過，關關過。"},{"n":30,"name":"離","guaci":"離：利貞。亨。畜牝牛，吉。","qs":"發光之前，先找對可以依靠的。"},{"n":31,"name":"咸","guaci":"咸：亨。利貞。取女吉。","qs":"真誠相待，感應自然來。"},{"n":32,"name":"恒","guaci":"恆：亨，无咎。利貞，利有攸往。","qs":"每天做一點，勝過一次爆發。"},{"n":33,"name":"遯","guaci":"遯：亨。小利貞。","qs":"退一步不是輸，是為了走更遠。"},{"n":34,"name":"大壯","guaci":"大壯：利貞。","qs":"強的時候，更要守規矩。"},{"n":35,"name":"晉","guaci":"晉：康侯用錫馬蕃庶，晝日三接。","qs":"順風時，把帆張滿。"},{"n":36,"name":"明夷","guaci":"明夷：利艱貞。","qs":"環境不對時，先保護自己。"},{"n":37,"name":"家人","guaci":"家人：利女貞。","qs":"把家顧好，是最大的底氣。"},{"n":38,"name":"睽","guaci":"睽：小事吉。","qs":"不合沒關係，各走各的也行。"},{"n":39,"name":"蹇","guaci":"蹇：利西南，不利東北；利見大人，貞吉。","qs":"卡住的時候，停下來想比硬闖好。"},{"n":40,"name":"解","guaci":"解：利西南，无所往，其來復吉。有攸往，夙吉。","qs":"難關過了，就別再回頭看。"},{"n":41,"name":"損","guaci":"損：有孚，元吉。无咎，可貞，利有攸往。曷之用？二簋可用享。","qs":"有捨才有得。"},{"n":42,"name":"益","guaci":"益：利有攸往。利涉大川。","qs":"幫人，就是幫未來的自己。"},{"n":43,"name":"夬","guaci":"夬：揚于王庭，孚號，有厲，告自邑，不利即戎，利有攸往。","qs":"該切割的，漂亮地切割。"},{"n":44,"name":"姤","guaci":"姤：女壯，勿用取女。","qs":"好的開始要珍惜，壞的苗頭要早斷。"},{"n":45,"name":"萃","guaci":"萃：王假有廟，利見大人，亨。利貞。用大牲吉，利有攸往。","qs":"把對的人聚在一起，事就成了一半。"},{"n":46,"name":"升","guaci":"升：元亨，用見大人，勿恤，南征吉。","qs":"爬樓梯比坐電梯踏實。"},{"n":47,"name":"困","guaci":"困：亨，貞大人吉，无咎，有言不信。","qs":"被困住時，守住心就不算輸。"},{"n":48,"name":"井","guaci":"井：改邑不改井，无喪无得，往來井井。汔至亦未繘井。羸其瓶，凶。","qs":"做那口人人需要的井。"},{"n":49,"name":"革","guaci":"革：已日乃孚，元亨。利貞。悔亡。","qs":"該換跑道時，別留戀舊地圖。"},{"n":50,"name":"鼎","guaci":"鼎：元吉，亨。","qs":"能扛鼎的人，先穩住自己。"},{"n":51,"name":"震","guaci":"震：亨。震來虩虩，笑言啞啞。震驚百里，不喪匕鬯。","qs":"被嚇醒之後，記得往前走。"},{"n":52,"name":"艮","guaci":"艮：艮其背，不獲其身，行其庭，不見其人，无咎。","qs":"懂得停下來，也是一種能力。"},{"n":53,"name":"漸","guaci":"漸：女歸吉，利貞。","qs":"慢就是快，穩就是贏。"},{"n":54,"name":"歸妹","guaci":"歸妹：征凶，无攸利。","qs":"位置不對時，先把本分做好。"},{"n":55,"name":"豐","guaci":"豐：亨。王假之，勿憂，宜日中。","qs":"最滿的時候，記得留白。"},{"n":56,"name":"旅","guaci":"旅：小亨，旅貞吉。","qs":"出門在外，低調平安是福。"},{"n":57,"name":"巽","guaci":"巽：小亨。利有攸往。利見大人。","qs":"柔軟的身段，走得進人心。"},{"n":58,"name":"兌","guaci":"兌：亨。利貞。","qs":"讓人開心的人，運氣不會差。"},{"n":59,"name":"渙","guaci":"渙：亨，王假有廟，利涉大川，利貞。","qs":"散了，就一個一個找回來。"},{"n":60,"name":"節","guaci":"節：亨。苦節不可貞。","qs":"有節制的人，走得遠。"},{"n":61,"name":"中孚","guaci":"中孚：豚魚吉，利涉大川，利貞。","qs":"誠信是最硬的通貨。"},{"n":62,"name":"小過","guaci":"小過：亨。利貞。可小事，不可大事。飛鳥遺之音，不宜上宜下，大吉。","qs":"小事做到位，大事自然來。"},{"n":63,"name":"既濟","guaci":"既濟：亨小。利貞。初吉終亂。","qs":"成功之後，更要小心。"},{"n":64,"name":"未濟","guaci":"未濟：亨。小狐汔濟，濡其尾，无攸利。","qs":"故事還沒完，好戲在後頭。"}];
 const FRONTEND = "https://yiwen.taicalc.com";
 const API_HOST = "https://yiwen-api.taicalc.com";
 
@@ -130,6 +131,85 @@ function tradeDate() {
   const d = new Date(Date.now() + 8 * 3600 * 1000); // 台灣時間
   const p = n => String(n).padStart(2, "0");
   return `${d.getUTCFullYear()}/${p(d.getUTCMonth() + 1)}/${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+}
+
+/* ===== Web Push（每日一卦） ===== */
+function b64u(buf) {
+  const b = buf instanceof ArrayBuffer ? new Uint8Array(buf) : buf;
+  let s = "";
+  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function unb64u(s) {
+  s = s.replace(/-/g, "+").replace(/_/g, "/");
+  while (s.length % 4) s += "=";
+  const bin = atob(s);
+  const b = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+  return b;
+}
+async function hkdfExpand(ikm, salt, info, len) {
+  const key = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]);
+  return new Uint8Array(await crypto.subtle.deriveBits({ name: "HKDF", hash: "SHA-256", salt, info }, key, len * 8));
+}
+async function vapidJWT(jwk, aud) {
+  const enc = new TextEncoder();
+  const h = b64u(enc.encode(JSON.stringify({ typ: "JWT", alg: "ES256" })));
+  const p = b64u(enc.encode(JSON.stringify({ aud, exp: Math.floor(Date.now() / 1000) + 43200, sub: "mailto:hello@taicalc.com" })));
+  const key = await crypto.subtle.importKey("jwk", jwk, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, enc.encode(h + "." + p));
+  return h + "." + p + "." + b64u(sig); // ECDSA sign 直接回傳 raw r||s（64 bytes）
+}
+async function encryptPush(p256dhB64, authB64, payloadStr) {
+  const uaPub = unb64u(p256dhB64);
+  const auth = unb64u(authB64);
+  const payload = new TextEncoder().encode(payloadStr);
+  const eph = await crypto.subtle.generateKey({ name: "ECDH", namedCurve: "P-256" }, true, ["deriveBits"]);
+  const ephPubRaw = new Uint8Array(await crypto.subtle.exportKey("raw", eph.publicKey));
+  const uaKey = await crypto.subtle.importKey("raw", uaPub, { name: "ECDH", namedCurve: "P-256" }, false, []);
+  const shared = new Uint8Array(await crypto.subtle.deriveBits({ name: "ECDH", public: uaKey }, eph.privateKey, 256));
+  const info = (s) => { const e = new TextEncoder().encode(s); const o = new Uint8Array(e.length + 1 + 130); o.set(e); o[e.length] = 0; o.set(uaPub, e.length + 1); o.set(ephPubRaw, e.length + 1 + 65); return o; };
+  const cek = await hkdfExpand(shared, auth, info("Content-Encoding: aes128gcm"), 16);
+  const nonce = await hkdfExpand(shared, auth, info("Content-Encoding: nonce"), 12);
+  const cekKey = await crypto.subtle.importKey("raw", cek, "AES-GCM", false, ["encrypt"]);
+  const m = new Uint8Array(2 + payload.length);
+  m.set(payload, 2);
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv: nonce }, cekKey, m));
+  const salt = crypto.getRandomValues(new Uint8Array(16));
+  const header = new Uint8Array(16 + 4 + 1 + 65);
+  header.set(salt, 0);
+  new DataView(header.buffer).setUint32(16, 4096, false);
+  header[20] = 65;
+  header.set(ephPubRaw, 21);
+  const body = new Uint8Array(header.length + ct.length);
+  body.set(header, 0); body.set(ct, header.length);
+  return body;
+}
+async function sendPush(env, sub, payloadObj) {
+  const jwk = JSON.parse(env.VAPID_PRIV_JWK);
+  const pub = new Uint8Array(65);
+  pub[0] = 4; pub.set(unb64u(jwk.x), 1); pub.set(unb64u(jwk.y), 33);
+  const url = new URL(sub.endpoint);
+  const jwt = await vapidJWT(jwk, url.origin);
+  const body = await encryptPush(sub.p256dh, sub.auth, JSON.stringify(payloadObj));
+  return fetch(sub.endpoint, {
+    method: "POST",
+    headers: {
+      "Authorization": "vapid t=" + jwt + ", k=" + b64u(pub),
+      "Content-Type": "application/octet-stream",
+      "Content-Encoding": "aes128gcm",
+      "TTL": "86400",
+    },
+    body,
+  });
+}
+function mulberry32(a) {
+  return function () {
+    a |= 0; a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
 
 export default {
@@ -361,6 +441,47 @@ export default {
       }
     }
 
+    /* ===== 推播訂閱 ===== */
+    if (path === "/api/push/subscribe" && req.method === "POST") {
+      try {
+        const b = await req.json();
+        if (!b.endpoint || !b.p256dh || !b.auth) return json(req, { error: "bad" }, 400);
+        await env.DB.prepare("INSERT OR REPLACE INTO push_subs (endpoint, p256dh, auth, created_at) VALUES (?,?,?,?)")
+          .bind(String(b.endpoint).slice(0, 500), String(b.p256dh).slice(0, 200), String(b.auth).slice(0, 100), Math.floor(Date.now() / 1000)).run();
+        return json(req, { ok: true });
+      } catch (e) { return json(req, { error: "db" }, 500); }
+    }
+    if (path === "/api/push/unsubscribe" && req.method === "POST") {
+      try {
+        const b = await req.json();
+        await env.DB.prepare("DELETE FROM push_subs WHERE endpoint = ?").bind(b.endpoint || "").run();
+        return json(req, { ok: true });
+      } catch (e) { return json(req, { error: "db" }, 500); }
+    }
+
     return json(req, { error: "not_found" }, 404);
+  }
+  ,
+  async scheduled(event, env, ctx) {
+    try {
+      const tw = new Date(Date.now() + 8 * 3600 * 1000);
+      const seed = tw.getUTCFullYear() * 10000 + (tw.getUTCMonth() + 1) * 100 + tw.getUTCDate();
+      const rnd = mulberry32(seed);
+      const g = DAILY_GUA[Math.floor(rnd() * 64)];
+      const payload = {
+        title: "易問・每日一卦",
+        body: `今日第${g.n}卦・${g.name}：${g.qs}`,
+        url: "https://yiwen.taicalc.com/",
+      };
+      const subs = await env.DB.prepare("SELECT endpoint, p256dh, auth FROM push_subs").all();
+      for (const s of (subs.results || [])) {
+        try {
+          const r = await sendPush(env, s, payload);
+          if (r.status === 404 || r.status === 410) {
+            await env.DB.prepare("DELETE FROM push_subs WHERE endpoint = ?").bind(s.endpoint).run();
+          }
+        } catch (e) {}
+      }
+    } catch (e) {}
   }
 };

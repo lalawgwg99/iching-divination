@@ -98,10 +98,25 @@ const qsOf = n => (BH[n]? BH[n].qishi: "");
 const TRILBL = {乾:"乾 ☰",兌:"兌 ☱",離:"離 ☲",震:"震 ☳",巽:"巽 ☴",坎:"坎 ☵",艮:"艮 ☶",坤:"坤 ☷"};
 
 // coin: 每爻擲三枚， 字=3 / 花=2 ； 6老陰(變) 7少陽 8少陰 9老陽(變)
-function coinYao() {
-let v = 0;
-for (let i = 0; i < 3; i++) v += Math.random() < 0.5? 3: 2;
-return v; // 6,7,8,9
+function coinToss() {
+const faces = [0, 0, 0].map(() => Math.random() < 0.5 ? 3 : 2);
+return { v: faces[0] + faces[1] + faces[2], faces }; // 6,7,8,9
+}
+/* 銅錢音效（WebAudio 合成，無需音檔） */
+let _AC = null;
+function clink(delay) {
+try {
+_AC = _AC || new (window.AudioContext || window.webkitAudioContext)();
+if (_AC.state === "suspended") _AC.resume();
+const t = _AC.currentTime + (delay || 0);
+const o = _AC.createOscillator(), g = _AC.createGain();
+o.type = "triangle"; o.frequency.value = 2600 + Math.random() * 900;
+g.gain.setValueAtTime(0.0001, t);
+g.gain.exponentialRampToValueAtTime(0.22, t + 0.012);
+g.gain.exponentialRampToValueAtTime(0.0001, t + 0.22);
+o.connect(g); g.connect(_AC.destination);
+o.start(t); o.stop(t + 0.25);
+} catch (e) {}
 }
 function labelOf(yang, i) {
 const p = ["初", "二", "三", "四", "五", "上"][i];
@@ -167,7 +182,7 @@ else { alert("請先寫下你想問的事"); $("q").focus(); return;}
 }
 let yaos;
 if (mode === "coin") {
-yaos = []; for (let i = 0; i < 6; i++) { const v = coinYao(); const yg = (v === 7 || v === 9); yaos.push({yang: yg, moving: (v === 6 || v === 9), label: labelOf(yg, i)});}
+yaos = []; for (let i = 0; i < 6; i++) { const { v, faces } = coinToss(); const yg = (v === 7 || v === 9); yaos.push({yang: yg, moving: (v === 6 || v === 9), label: labelOf(yg, i), faces});}
 } else if (mode === "time") {
 const d = new Date();
 const up = (d.getFullYear() + d.getMonth() + 1 + d.getDate()) % 8;
@@ -215,7 +230,26 @@ renderGuaRest();
 btn.disabled = false; btn.textContent = btnTxt;
 }
 };
-tick();
+/* 擲錢幣儀式：每爻三枚銅錢翻落，逐爻成卦 */
+const NUM = ["一", "二", "三", "四", "五", "六"];
+function ritualTick(i) {
+if (i >= 6) { renderGuaRest(); btn.disabled = false; btn.textContent = btnTxt; return; }
+const y = cur.yaos[i];
+const st = $("coinStage");
+st.style.display = "";
+st.innerHTML = `<div class="round-lbl">第${NUM[i]}爻・靜心擲</div><div class="coins">` +
+y.faces.map(f => `<div class="coin ${f === 3 ? "toss-zi" : "toss-hua"}"><div class="face front">字</div><div class="face back">花</div></div>`).join("") + `</div>`;
+clink(0); clink(0.13); clink(0.26);
+setTimeout(() => {
+const gh = $("yaoLines").querySelector(".yao.ghost");
+if (gh) gh.remove();
+$("yaoLines").insertAdjacentHTML("beforeend", yaoHTML(y, i));
+st.style.display = "none"; st.innerHTML = "";
+setTimeout(() => ritualTick(i + 1), 200);
+}, 1000);
+}
+if (mode === "coin") { $("coinStage").style.display = ""; ritualTick(0); }
+else { $("coinStage").style.display = "none"; tick(); }
 }
 
 function showEl(el) {
@@ -612,6 +646,47 @@ function dailyCard() {
   showCardPreview(c.toDataURL("image/png"), `易問_每日一卦_${date.getMonth() + 1}${date.getDate()}.png`);
 }
 $("dailyShare").addEventListener("click", dailyCard);
+
+/* ---------- 每日推播 ---------- */
+const VAPID_PUB = "BBAhtLkok76TNAkf4jHKlC3oGjwqRneEIc4iybyMWfJdIf34Mlckhi3E6AdWlm6AeFUvq4Z7OHdtOQFTliX3MIQ";
+function b64ToU8(s) {
+  const bin = atob(s.replace(/-/g, "+").replace(/_/g, "/"));
+  const b = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+  return b;
+}
+function renderPushBtn(on) {
+  const b = $("pushBtn"); if (!b) return;
+  b.textContent = on ? "已開啟每日推播（點按關閉）" : "開啟每日推播";
+}
+async function initPush() {
+  const btn = $("pushBtn"); if (!btn) return;
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) { btn.style.display = "none"; return; }
+  let reg;
+  try { reg = await navigator.serviceWorker.register("/sw.js"); }
+  catch (e) { btn.style.display = "none"; return; }
+  let sub = null;
+  try { sub = await reg.pushManager.getSubscription(); } catch (e) {}
+  renderPushBtn(!!sub);
+  btn.onclick = async () => {
+    try {
+      const cur = await reg.pushManager.getSubscription();
+      if (cur) {
+        await fetch(API_BASE + "/api/push/unsubscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: cur.endpoint }) });
+        await cur.unsubscribe();
+        renderPushBtn(false); toast("已關閉每日推播"); return;
+      }
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") { toast("需要允許通知才能推播喔"); return; }
+      const s = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ToU8(VAPID_PUB) });
+      const j = s.toJSON();
+      const r = await fetch(API_BASE + "/api/push/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ endpoint: j.endpoint, p256dh: j.keys.p256dh, auth: j.keys.auth }) });
+      if (!r.ok) throw new Error("srv");
+      renderPushBtn(true); toast("已開啟！每天早上 7 點推播今日一卦");
+    } catch (e) { toast("推播設定失敗，請再試一次"); }
+  };
+}
+initPush();
 
 
 
