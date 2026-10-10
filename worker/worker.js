@@ -473,9 +473,21 @@ export default {
         }
         const m = txt.match(/\{[\s\S]*\}/);
         if (m) txt = m[0];
-        const out = JSON.parse(txt);
-        for (const k of ["xiankuang", "bianhua", "jianyi", "tixing"])
-          if (typeof out[k] !== "string") out[k] = "";
+        const norm = (o) => {
+          for (const k of ["xiankuang", "bianhua", "jianyi", "tixing"])
+            if (typeof o[k] !== "string") o[k] = "";
+          return o;
+        };
+        let out = norm(JSON.parse(txt));
+        if (!out.xiankuang) {
+          // AI 回了畸形 JSON，重試一次並強制格式
+          messages.push({ role: "user", content: "上次輸出格式錯誤。請只輸出 JSON，不要有任何其他文字，格式：{\"xiankuang\":\"...\",\"bianhua\":\"...\",\"jianyi\":\"...\",\"tixing\":\"...\"}，有問事領域時再加 \"sanzhi\" 物件。" });
+          txt = await callAI(env, messages);
+          const m2 = txt.match(/\{[\s\S]*\}/);
+          if (m2) txt = m2[0];
+          out = norm(JSON.parse(txt));
+          if (!out.xiankuang) throw new Error("ai_empty_response");
+        }
         return json(req, out);
       } catch (e) {
         return json(req, { error: "divine_failed", detail: String(e && e.message || e).slice(0, 200) }, 500);

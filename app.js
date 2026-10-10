@@ -422,6 +422,7 @@ if (r.status === 402) {
 }
 if (!r.ok) throw new Error("服務暫時忙線中（" + r.status + "）");
 const d = await r.json();
+if (!d.xiankuang) throw new Error("解卦內容空白，請再試一次");
 if (ME && ME.loggedIn) { loadMe(); }
 resetFollow();
 const blocks = [["現況", d.xiankuang, "xiankuang"], ["變數", d.bianhua, "bianhua"], ["建議", d.jianyi, "jianyi"], ["提醒", d.tixing, "tixing"]];
@@ -443,7 +444,8 @@ $("shareBtn").disabled = false;
 $("askAgain").style.display = "";
 } catch (e) {
 clearInterval(aiTimer);
-$("aiOut").innerHTML = `<div class="loading">解卦失敗，請稍後再試（服務暫時忙線中）。</div>`;
+$("aiOut").innerHTML = `<div class="loading">解卦失敗，請稍後再試（${esc(e.message || "服務暫時忙線中")}）。<div style="margin-top:12px;"><button class="btn" id="aiRetry" style="width:auto;padding:10px 26px;letter-spacing:.15em;">再觀一次</button></div></div>`;
+$("aiRetry").onclick = () => runDivine(clarify, btn, btnTxt);
 }
 btn.disabled = false; btn.textContent = btnTxt;
 }
