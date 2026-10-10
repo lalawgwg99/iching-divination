@@ -373,6 +373,32 @@ $("quotaBox").innerHTML = "已收到！開放時第一時間通知你。";
 async function goAI() {
 const btn = $("goAI"); const btnTxt = btn.textContent;
 btn.disabled = true; btn.textContent = "解卦中…";
+/* 先請 AI 判斷是否需要釐清 */
+$("aiOut").innerHTML = `<div class="loading"><div class="hexload"><i></i><i></i><i></i><i></i><i></i><i></i></div><div>解卦師正在看你的問題…</div></div>`;
+try {
+  const { ben, zhi, question } = cur;
+  const cr = await fetch(API_BASE + "/divine/clarify", {
+    method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, topic: curTopic, benGua: { name: ben.name, n: ben.n }, zhiGua: { name: zhi.name, n: zhi.n } })
+  });
+  const cj = await cr.json();
+  const qs = (cj.questions || []).filter(q => q && q.trim());
+  if (qs.length) { showClarify(qs, btn, btnTxt); return; }
+} catch (e) { /* 釐清失敗就直接解 */ }
+runDivine([], btn, btnTxt);
+}
+function showClarify(qs, btn, btnTxt) {
+  $("aiOut").innerHTML = `<div class="clarify-box"><div class="cq-title">解卦前，師父想先問${qs.length === 1 ? "一句" : "兩句"}</div>` +
+    qs.map((q, i) => `<div class="cq-item"><div class="cq-q">${esc(q)}</div><input class="cq-a" data-i="${i}" placeholder="簡單回一句，或直接跳過"></div>`).join("") +
+    `<div class="cq-btns"><button id="cqSkip" class="btn ghost" style="margin:0;">直接解卦</button><button id="cqGo" class="btn cinnabar" style="margin:0;">這樣解</button></div></div>`;
+  const collect = () => qs.map((q, i) => {
+    const inp = document.querySelector(`.cq-a[data-i="${i}"]`);
+    return { q, a: inp ? inp.value.trim() : "" };
+  });
+  $("cqSkip").onclick = () => runDivine([], btn, btnTxt);
+  $("cqGo").onclick = () => runDivine(collect(), btn, btnTxt);
+}
+async function runDivine(clarify, btn, btnTxt) {
 const AI_STAGES = ["正在觀本卦…", "正在參詳變爻…", "正在寫白話解卦…"];
 let aiStageI = 0;
 $("aiOut").innerHTML = `<div class="loading"><div style="font-size:.8rem;letter-spacing:.3em;color:var(--ink2);margin-bottom:12px;">觀卦中</div><div class="hexload"><i></i><i></i><i></i><i></i><i></i><i></i></div><div id="aiStageTxt">正在觀本卦…</div></div>`;
@@ -383,7 +409,7 @@ const moving = yaos.map((y, i) => y.moving? { label: y.label, ben: ben.yao[i].te
 const r = await fetch(API_BASE + "/divine", {
 method: "POST", credentials: "include", headers: { "Content-Type": "application/json"},
 body: JSON.stringify({
-question, topic: curTopic,
+question, topic: curTopic, clarify,
 benGua: { name: ben.name, n: ben.n, guaci: ben.guaci, baihua: bhOf(ben.name)},
 moving, zhiGua: { name: zhi.name, n: zhi.n, guaci: zhi.guaci, baihua: bhOf(zhi.name)}
 })

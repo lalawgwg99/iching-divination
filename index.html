@@ -63,6 +63,16 @@ textarea::placeholder{font-size:.88rem; color:#a09a89; line-height:30px;}
 .teaser .tt{font-size:.92rem; color:var(--ink2); letter-spacing:.1em; margin-bottom:8px;}
 .teaser .ts{font-size:1.05rem; color:var(--brand); letter-spacing:.15em; font-weight:700;}
 .teaser:active{transform:scale(.98);}
+/* 釐清式解卦 */
+.clarify-box{border:1px dashed var(--cinnabar); border-radius:10px; padding:18px 16px; margin-top:6px; background:#fffdf8;}
+.cq-title{font-size:.95rem; letter-spacing:.2em; color:var(--cinnabar); margin-bottom:14px; text-align:center;}
+.cq-item{margin-bottom:12px;}
+.cq-q{font-size:.95rem; margin-bottom:6px; line-height:1.8;}
+.cq-q::before{content:"問 "; color:var(--cinnabar); font-size:.78rem; letter-spacing:.2em;}
+.cq-a{width:100%; box-sizing:border-box; padding:10px 12px; border:1px solid var(--line); border-radius:8px;
+  font-size:.95rem; font-family:inherit; background:#fff; color:var(--ink);}
+.cq-btns{display:flex; gap:10px; margin-top:6px;}
+.cq-btns .btn{flex:1;}
 /* 底部分類導航 */
 .wrap{padding-bottom:96px;}
 #tabbar{position:fixed; left:0; right:0; bottom:0; width:100%; z-index:50;
@@ -519,7 +529,7 @@ header.top{position:relative;}
   <button data-tab="hist"><span class="ti">記</span><span class="tl">記錄</span></button>
   <button data-tab="more"><span class="ti">餘</span><span class="tl">更多</span></button>
 </nav>
-<script src="app.js?v=20261010h"></script>
+<script src="app.js?v=20261010i"></script>
 
 </body>
 </html>

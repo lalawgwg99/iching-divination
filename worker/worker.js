@@ -38,8 +38,8 @@ function cors(req) {
 const json = (req, obj, status = 200) =>
   new Response(JSON.stringify(obj), { status, headers: cors(req) });
 
-async function callAI(env, messages) {
-  const ai = await env.AI.run(MODEL, { messages, max_tokens: 1200 });
+async function callAI(env, messages, model, maxTokens) {
+  const ai = await env.AI.run(model || MODEL, { messages, max_tokens: maxTokens || 1200 });
   let txt = "";
   if (typeof ai.response === "string") txt = ai.response;
   else if (ai.choices && ai.choices[0]) {
@@ -426,6 +426,22 @@ export default {
       }
     }
 
+    /* ===== 釐清式解卦：AI 先問關鍵問題 ===== */
+    if (path === "/divine/clarify" && req.method === "POST") {
+      try {
+        const b = await req.json();
+        const messages = [
+          { role: "system", content: "你是「易問」的解卦師。用戶剛起了一卦，準備請你解卦。你先判斷他的問題是否具體到可以準確解卦。\n- 若問題含糊籠統（如「幫我看看」「最近怎麼樣」「問事業」但沒說情境），回傳 1-2 個最關鍵的釐清問題（繁體中文、口語、每個不超過 30 字），幫你解得更準。\n- 若問題已具體（含人、事、時間或抉擇點），回傳空陣列。\n只輸出 JSON：{\"questions\": [\"問題1\", \"問題2\"]}，不要其他文字。全文繁體中文（台灣用法），嚴禁簡體字。" },
+          { role: "user", content: `問事：${b.question || ""}${b.topic ? "\n領域：" + b.topic : ""}\n本卦：第${b.benGua.n}卦 ${b.benGua.name}；之卦：第${b.zhiGua.n}卦 ${b.zhiGua.name}` },
+        ];
+        let txt = await callAI(env, messages, null, 300);
+        const m = txt.match(/\{[\s\S]*\}/);
+        let out = { questions: [] };
+        if (m) { try { const j = JSON.parse(m[0]); if (Array.isArray(j.questions)) out.questions = j.questions.slice(0, 2); } catch {} }
+        return json(req, out);
+      } catch (e) { return json(req, { questions: [] }); }
+    }
+
     /* ===== AI 解卦 ===== */
     if (path === "/divine" && req.method === "POST") {
       try {
@@ -439,7 +455,8 @@ export default {
         const moving = (b.moving || []).map(m =>
           `變爻${m.label}：本卦「${m.ben}」→之卦${m.zhiLabel}「${m.zhi}」`).join("；") || "無變爻";
         const topic = b.topic ? `\n問事領域：${b.topic}（請多從該領域角度切入）` : "";
-        const user = `問事：${b.question}${topic}\n本卦：第${b.benGua.n}卦 ${b.benGua.name}，卦辭「${b.benGua.guaci}」，白話「${b.benGua.baihua}」\n${moving}\n之卦：第${b.zhiGua.n}卦 ${b.zhiGua.name}，卦辭「${b.zhiGua.guaci}」，白話「${b.zhiGua.baihua}」\n請依以上起卦結果解卦，只輸出 JSON。`;
+        const clarifyTxt = (b.clarify || []).filter(c => c.a && c.a.trim()).map(c => `問：${c.q}\n答：${c.a}`).join("\n");
+        const user = `問事：${b.question}${topic}\n本卦：第${b.benGua.n}卦 ${b.benGua.name}，卦辭「${b.benGua.guaci}」，白話「${b.benGua.baihua}」\n${moving}\n之卦：第${b.zhiGua.n}卦 ${b.zhiGua.name}，卦辭「${b.zhiGua.guaci}」，白話「${b.zhiGua.baihua}」${clarifyTxt ? "\n解卦師先釐清：\n" + clarifyTxt + "\n（請將以上問答納入解卦，解得更貼近他的真實處境）" : ""}\n請依以上起卦結果解卦，只輸出 JSON。`;
         const messages = [
           { role: "system", content: SYS },
           { role: "user", content: user },
