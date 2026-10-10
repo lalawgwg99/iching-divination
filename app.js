@@ -1,5 +1,6 @@
 /* 易問 app.js */
 const API_BASE = "https://yiwen-api.taicalc.com";
+const TESTING_UNLIMITED = true; // 測試期：AI 解卦＋追問不限次數，不需登入
 let GUA = [], SYM = {}, BH = {};
 let cur = null;
 let ME = null;
@@ -17,7 +18,7 @@ function renderAuth() {
     box.innerHTML = `<div class="auth-menu">
       <button class="auth-btn" id="authToggle">登入</button>
       <div class="auth-panel" id="authPanel">
-        <div class="hint">登入後額度跨裝置同步，<br>也可購買單次包或月訂。</div>
+        <div class="hint">登入後占問記錄跨裝置同步。<br>測試期間不用登入也能無限使用。</div>
         <button class="line-btn" onclick="location.href=API_BASE+'/auth/line'">用 LINE 登入</button>
         <button class="google-btn" onclick="location.href=API_BASE+'/auth/google'">用 Google 登入</button>
       </div></div>`;
@@ -308,12 +309,14 @@ q.n++; localStorage.setItem(quotaKey(), JSON.stringify(q)); renderQuota();
 }
 function renderQuota() {
 if (ME && ME.loggedIn) { renderQuotaMember(); return; }
+if (TESTING_UNLIMITED) { $("quotaBox").innerHTML = `測試期間・AI 解卦<b style="font-size:1.2rem;">無限</b>使用，不用登入，盡量問`; return; }
 const n = quotaLeft();
 $("quotaBox").innerHTML = n > 0
 ? `這個月還能請 AI 解卦 <b style="font-size:1.5rem;">${n}</b> 次`
 : `本月免費額度已用完。付費無限解卦即將開放，<b>留下 Email 可第一時間收到通知</b>。<div style="margin-top:10px;display:flex;gap:8px;"><input id="waitEmail" placeholder="your@email.com" style="flex:1;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;"><button id="waitBtn" class="btn" style="margin:0;width:auto;padding:10px 18px;letter-spacing:.1em;text-indent:0;">通知我</button></div>`;
 function renderQuotaMember() {
   const box = $("quotaBox");
+  if (typeof TESTING_UNLIMITED !== "undefined" && TESTING_UNLIMITED) { box.innerHTML = `測試期間・AI 解卦<b style="font-size:1.2rem;">無限</b>使用，盡量問`; return; }
   if (ME.plan === "monthly") {
     box.innerHTML = `月訂會員・無限解卦 <span style="color:var(--ink2);font-size:.85rem;">有效期至 ${new Date(ME.expiresAt * 1000).toLocaleDateString("zh-TW")}</span>`;
     return;
@@ -338,7 +341,6 @@ $("quotaBox").innerHTML = "已收到！開放時第一時間通知你。";
 }
 
 async function goAI() {
-if (!(ME && ME.loggedIn) && quotaLeft() <= 0) { alert("本月免費額度用完囉"); return;}
 const btn = $("goAI"); const btnTxt = btn.textContent;
 btn.disabled = true; btn.textContent = "解卦中…";
 const AI_STAGES = ["正在觀本卦…", "正在參詳變爻…", "正在寫白話解卦…"];
@@ -363,7 +365,7 @@ if (r.status === 402) {
 }
 if (!r.ok) throw new Error("服務暫時忙線中（" + r.status + "）");
 const d = await r.json();
-if (ME && ME.loggedIn) { loadMe(); } else { useQuota(); }
+if (ME && ME.loggedIn) { loadMe(); }
 resetFollow();
 const blocks = [["現況", d.xiankuang], ["變數", d.bianhua], ["建議", d.jianyi], ["提醒", d.tixing]];
 $("aiOut").innerHTML = `<div class="ai-sec">` + blocks.map((b, i) =>
@@ -490,13 +492,13 @@ renderFollowHint();
 }
 function renderFollowHint() {
 const logged = ME && ME.loggedIn;
-$("followHint").textContent = logged ? "每次追問消耗 1 次額度" : `每次追問消耗 1 次額度（本月剩餘 ${quotaLeft()} 次）`;
+$("followHint").textContent = "想到什麼就繼續問，不用客氣";
 }
 async function sendFollow() {
 const q = $("followQ").value.trim();
 if (!q || !cur || !cur.ai) return;
 const logged = ME && ME.loggedIn;
-if (!logged && quotaLeft() <= 0) { alert("本月免費額度用完囉"); return; }
+
 const btn = $("followBtn");
 btn.disabled = true;
 $("followList").innerHTML += `<div class="f-q">追問：${esc(q)}</div><div class="f-a">參詳中…</div>`;
