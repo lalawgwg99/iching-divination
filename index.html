@@ -63,6 +63,15 @@ textarea::placeholder{font-size:.88rem; color:#a09a89; line-height:30px;}
 .life-reading b::before{content:"◈ "; color:var(--cinnabar);}
 .life-reading p{margin:8px 0 0; font-size:.93rem;}
 .life-reading .how{font-size:.8rem; color:var(--ink2); border-top:1px dashed var(--line); padding-top:8px;}
+/* 三維指引 */
+.sz-box{margin-top:12px; padding:14px 16px; background:#fffdf8; border:1px solid var(--line); border-radius:10px;}
+.sz-box > b{color:var(--brand); font-size:.9rem; letter-spacing:.3em; text-indent:.3em; display:block; margin-bottom:6px; text-align:center;}
+.sz-box > b::before{content:"◈ "; color:var(--cinnabar);}
+.sz-row{display:flex; gap:10px; margin:12px 0 4px; align-items:flex-start;}
+.sz-tag{flex:none; font-size:.72rem; letter-spacing:.12em; color:#fff; background:var(--brand); border-radius:3px; padding:3px 8px; margin-top:4px; white-space:nowrap;}
+.sz-tag.bing{background:var(--cinnabar);}
+.sz-tag.xin{background:#b98a2f;}
+.sz-row p{margin:0 !important; font-size:.93rem; flex:1; text-align:justify;}
 /* 記錄工具 */
 .hist-tools{text-align:right; margin:-6px 0 8px;}
 .mini-btn{border:1px solid var(--line); background:transparent; border-radius:12px;
@@ -578,7 +587,7 @@ header.top{position:relative;}
   <button data-tab="fate"><span class="ti">運</span><span class="tl">運勢</span></button>
   <button data-tab="hist"><span class="ti">記</span><span class="tl">記錄</span></button>
 </nav>
-<script src="app.js?v=20261010n"></script>
+<script src="app.js?v=20261010o"></script>
 
 </body>
 </html>

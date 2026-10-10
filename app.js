@@ -424,7 +424,16 @@ const d = await r.json();
 if (ME && ME.loggedIn) { loadMe(); }
 resetFollow();
 const blocks = [["現況", d.xiankuang, "xiankuang"], ["變數", d.bianhua, "bianhua"], ["建議", d.jianyi, "jianyi"], ["提醒", d.tixing, "tixing"]];
-const zyHTML = d.zhiyin ? `<div class="zhiyin-box"><b>問事指引</b><p>${esc(d.zhiyin)}</p></div>` : "";
+function sanzhiHTML(sz) {
+  if (!sz || typeof sz !== "object") return "";
+  const rows = [];
+  if (sz.ju) rows.push(`<div class="sz-row"><span class="sz-tag">觀局</span><p>${esc(sz.ju)}</p></div>`);
+  if (sz.shi) rows.push(`<div class="sz-row"><span class="sz-tag bing">取勢</span><p>${esc(sz.shi)}</p></div>`);
+  if (sz.xin) rows.push(`<div class="sz-row"><span class="sz-tag xin">懂心</span><p>${esc(sz.xin)}</p></div>`);
+  if (!rows.length) return "";
+  return `<div class="sz-box"><b>三維指引</b>${rows.join("")}</div>`;
+}
+const zyHTML = d.sanzhi ? sanzhiHTML(d.sanzhi) : (d.zhiyin ? `<div class="zhiyin-box"><b>問事指引</b><p>${esc(d.zhiyin)}</p></div>` : "");
 $("aiOut").innerHTML = `<div class="ai-sec">` + blocks.map((b, i) =>
 `<div class="ai-block k-${b[2]}" style="animation-delay:${(i * 0.12).toFixed(2)}s"><h3>${b[0]}</h3><p>${esc(b[1])}</p>${b[2] === "jianyi" ? zyHTML : ""}</div>`).join("") + `<div class="closing">卦已觀畢，心中有數<br><span>決定，永遠在你手上。</span></div></div>`;
 cur.ai = d; saveHist();
