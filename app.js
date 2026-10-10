@@ -460,7 +460,8 @@ el.innerHTML = `<div class="rv-stat">☁️ 雲端同步中・累計占卦 ${s.t
 function renderHist() {
 const h = getHist();
 if (!h.length) return;
-$("histCard").style.display = ""; $("histCard").dataset.shown = "1";
+$("histCard").dataset.shown = "1";
+if (typeof curTab === "undefined" || curTab === "hist") $("histCard").style.display = "";
 const now = Date.now();
 const reviewed = h.filter(x => x.rv);
 const hit = reviewed.filter(x => x.rv.r === "hit").length;
