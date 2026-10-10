@@ -72,6 +72,10 @@ function onTap(e) {
     if (!isRedP(p)) { msg('這是黑子，輪到紅方走'); return; }
     if (S.sel && S.sel.x === x && S.sel.y === y) { S.sel = null; S.dots = []; renderPieces(); return; }
     S.sel = { x, y };
+    if (S.hintOn && x === S.puz.sol.fx && y === S.puz.sol.fy) {
+      S.hintOn = false;
+      document.querySelectorAll('.qj-p.hintp').forEach(el => el.classList.remove('hintp'));
+    }
     S.dots = QX.legalMoves(S.board, 'R').filter(m => m.fx === x && m.fy === y);
     if (typeof clink === 'function') clink();
     renderPieces();
@@ -111,7 +115,7 @@ function load() {
   S.dayKey = dayKey();
   S.puz = PUZ[dayIdx()];
   S.board = QX.parseFEN(S.puz.fen);
-  S.sel = null; S.dots = [];
+  S.sel = null; S.dots = []; S.hintOn = false;
   S.done = localStorage.getItem('yiwen_qiju_done') === S.dayKey;
   document.getElementById('qjHint').textContent = `第 ${S.puz.id} 局・紅先・一步殺將`;
   renderPieces();
@@ -135,7 +139,8 @@ window.qijuInit = function () {
     document.querySelectorAll('.qj-p').forEach(el => {
       el.classList.toggle('hintp', +el.dataset.x === s.fx && +el.dataset.y === s.fy);
     });
-    msg('試試這顆子');
+    S.hintOn = true;
+    msg('試試這顆發光的子');
   };
   document.getElementById('qjResetBtn').onclick = () => { if (!S.done) load(); };
   fetch('data/puzzles.json').then(r => r.json()).then(j => {
