@@ -430,8 +430,10 @@ export default {
     if (path === "/divine/clarify" && req.method === "POST") {
       try {
         const b = await req.json();
+        // 明顯具體的問題（夠長）直接跳過，不浪費一次 AI 判斷
+        if ((b.question || "").trim().length >= 15) return json(req, { questions: [] });
         const messages = [
-          { role: "system", content: "你是「易問」的解卦師。用戶剛起了一卦，準備請你解卦。你先判斷他的問題是否具體到可以準確解卦。\n- 若問題含糊籠統（如「幫我看看」「最近怎麼樣」「問事業」但沒說情境），回傳 1-2 個最關鍵的釐清問題（繁體中文、口語、每個不超過 30 字），幫你解得更準。\n- 若問題已具體（含人、事、時間或抉擇點），回傳空陣列。\n只輸出 JSON：{\"questions\": [\"問題1\", \"問題2\"]}，不要其他文字。全文繁體中文（台灣用法），嚴禁簡體字。" },
+          { role: "system", content: "你是「易問」的解卦師。用戶剛起了一卦，準備請你解卦。你先判斷他的問題是否具體到可以準確解卦。\n- 若問題含糊籠統（如「幫我看看」「最近怎麼樣」「問事業」但沒說情境），回傳 1-2 個最關鍵的釐清問題（繁體中文、口語、每個不超過 30 字），幫你解得更準。\n- 若問題已有明確的人、事或抉擇點（例如已說出選項、數字、時間），一律回傳空陣列，直接解卦，不要多問。寧可少問，不可擾民。\n只輸出 JSON：{\"questions\": [\"問題1\", \"問題2\"]}，不要其他文字。全文繁體中文（台灣用法），嚴禁簡體字。" },
           { role: "user", content: `問事：${b.question || ""}${b.topic ? "\n領域：" + b.topic : ""}\n本卦：第${b.benGua.n}卦 ${b.benGua.name}；之卦：第${b.zhiGua.n}卦 ${b.zhiGua.name}` },
         ];
         let txt = await callAI(env, messages, null, 300);

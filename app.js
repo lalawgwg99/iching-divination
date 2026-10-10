@@ -1168,9 +1168,47 @@ function lifePattern() {
   if (vol > 38) return ["波瀾壯闊型", "起伏比別人大，但每一次低谷都墊高了下一波。高峰值得，低谷別怕。"];
   return ["細水長流型", "沒有大起大落，穩穩走就是你的贏法。別人追浪，你走自己的路。"];
 }
+/* ---------- 人生自傳：七章故事 ---------- */
+const LIFE_STAGES = [
+  { name: "童年", a0: 0, a1: 12, open: "故事從{by}年開始，你帶著{ming}的命來到這個世界，什麼都不懂，什麼都敢。" },
+  { name: "少年", a0: 13, a1: 19, open: "十三歲，世界開始有了稜角，你第一次發現，大人也有答不出來的問題。" },
+  { name: "青年", a0: 20, a1: 29, open: "二十歲，你走出家門，風很大，但你決定先走再說。" },
+  { name: "壯年", a0: 30, a1: 39, open: "三十歲，人生的第一個分水嶺，每個選擇都開始有了重量。" },
+  { name: "中年", a0: 40, a1: 49, open: "四十歲，你終於學會分辨，什麼是真正重要的，什麼只是喧囂。" },
+  { name: "盛年", a0: 50, a1: 59, open: "五十歲，你不再跟命運較勁，開始學會跟它合作。" },
+  { name: "晚年", a0: 60, a1: 90, open: "六十歲以後，山水漸緩，你開始把故事，說給別人聽。" },
+];
+function stageSeg(a0, a1) { return LIFE.years.filter(d => d.age >= a0 && d.age <= a1); }
+function stageAvg(seg) { return seg.reduce((s, d) => s + d.sc, 0) / seg.length; }
+function lifeStoryHTML() {
+  const nowA = lifeNowAge();
+  const ming = LIFE.ming.name, by = LIFE.y;
+  let prevAvg = null, html = "";
+  LIFE_STAGES.forEach((st, si) => {
+    const seg = stageSeg(st.a0, st.a1);
+    if (!seg.length) return;
+    const avg = stageAvg(seg);
+    let peak = seg[0], valley = seg[0];
+    seg.forEach(d => { if (d.sc > peak.sc) peak = d; if (d.sc < valley.sc) valley = d; });
+    const len = st.a1 - st.a0 + 1;
+    const open = st.open.replace("{by}", by).replace("{ming}", ming);
+    let trend;
+    const span = peak.sc - valley.sc;
+    if (span >= 30) trend = `這${len}年大起大落，${peak.age}歲行「${peak.g.name}」卦站上高處，${valley.age}歲遇「${valley.g.name}」卦跌入低谷，像兩座對望的山。`;
+    else if (prevAvg !== null && avg > prevAvg + 4) trend = `這${len}年一路向上，${peak.age}歲那年「${peak.g.name}」卦，是這段路的最高處。`;
+    else if (prevAvg !== null && avg < prevAvg - 4) trend = `這${len}年走下坡，${valley.age}歲那年「${valley.g.name}」卦最低，記得守，別亂動。`;
+    else trend = `這${len}年沒有大風大浪，「${peak.g.name}」卦相伴，是細水長流的日子。`;
+    prevAvg = avg;
+    const here = (nowA >= st.a0 && nowA <= st.a1) ? '<span class="here">你正在這裡</span>' : "";
+    const repGua = peak.g.name;
+    html += `<div class="story-ch"><div class="sch-t">第${["一","二","三","四","五","六","七"][si]}章・${st.name} <span>${st.a0}–${st.a1}歲・${by + st.a0}–${by + st.a1}年</span>${here}</div><p>${open}</p><p>${trend}</p><p class="sch-c">「${repGua}」——${esc(MING_TXT[repGua] || "")}</p></div>`;
+  });
+  return html;
+}
 function lifeReadingHTML() {
   const [name, desc] = lifePattern();
-  return `<div class="life-reading"><b>命運格局・${name}</b><p>${desc}</p><p class="how">怎麼看：曲線是運勢起伏・<span style="color:var(--cinnabar)">紅點</span>是人生高峰・<span style="color:var(--cinnabar)">「今」</span>是你現在的位置・點曲線看那一年</p></div>`;
+  return `<div class="life-reading"><div class="story-head">◈ 你的自傳</div>` + lifeStoryHTML() +
+    `<div class="story-tail"><b>命運格局・${name}</b><p>${desc}</p><p class="how">怎麼看：曲線是運勢起伏・<span style="color:var(--cinnabar)">紅點</span>是人生高峰・<span style="color:var(--cinnabar)">「今」</span>是你現在的位置・點曲線看那一年</p></div></div>`;
 }
 /* ---------- 命運山水音效（WebAudio 合成） ---------- */
 let _lifeAC = null;
