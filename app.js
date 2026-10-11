@@ -439,6 +439,14 @@ const zyHTML = d.sanzhi ? sanzhiHTML(d.sanzhi) : (d.zhiyin ? `<div class="zhiyin
 $("aiOut").innerHTML = `<div class="ai-sec">` + blocks.map((b, i) =>
 `<div class="ai-block k-${b[2]}" style="animation-delay:${(i * 0.12).toFixed(2)}s"><h3>${b[0]}</h3><p>${esc(b[1])}</p>${b[2] === "jianyi" ? zyHTML : ""}</div>`).join("") + `<div class="closing">卦已觀畢，心中有數<br><span>決定，永遠在你手上。</span></div></div>`;
 cur.ai = d; saveHist();
+/* 投資理財類問題 → 導流 TaiCalc 看數字 */
+try {
+  const MKW = ["投資","理財","股票","基金","買房","房貸","貸款","退休","保險","存錢","加薪","創業","開店","副業","借錢","債務","報酬","etf","ETF"];
+  if (MKW.some(k => (cur.question||"").includes(k))) {
+    $("aiOut").insertAdjacentHTML("beforeend",
+      `<a class="xlink" href="https://taicalc.com" target="_blank" rel="noopener">想看數字，上 TaiCalc 試算 →</a>`);
+  }
+} catch {}
 clearInterval(aiTimer);
 $("shareBtn").disabled = false;
 $("askAgain").style.display = "";
