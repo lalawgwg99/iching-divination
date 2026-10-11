@@ -106,8 +106,8 @@ function openRedeem() {
   if (p) { p.classList.add("open"); const i = $("redeemInput"); if (i) i.focus(); }
   else { const t = $("authToggle"); if (t) t.click(); }
 }
-// 商家轉帳帳號（2026-10-11 驗證收款制）：待商家提供後填入
-const MERCHANT_BANK = "請向商家索取轉帳帳號";
+// 商家轉帳帳號（2026-10-11 驗證收款制）：目前是佔位假帳號，等榮德給真帳號再換
+const MERCHANT_BANK = "範例銀行(000)・000-000-000000（假帳號・尚未開通收款）";
 let __orderSeq = 0;
 function plansHTML() {
   // 2026-10-11 驗證收款制：轉帳下單表單（買家填末五碼，商家後台確認後發碼）
