@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>串接示範：別人的網站怎麼用兌換碼系統</title>
+<style>
+  body { font-family: system-ui, -apple-system, "Noto Sans TC", sans-serif; max-width: 560px; margin: 0 auto; padding: 24px 16px; color: #2b2620; background: #faf8f3; }
+  h1 { font-size: 1.3rem; }
+  .hint { font-size: .85rem; color: #8a7f6d; line-height: 1.7; }
+  .card { background: #fff; border: 1px solid #e5ddcf; border-radius: 12px; padding: 16px; margin: 12px 0; }
+  label { display: block; font-size: .85rem; color: #6b6257; margin: 10px 0 4px; }
+  input { width: 100%; padding: 10px; border: 1px solid #d8cfbc; border-radius: 8px; font-size: 1rem; box-sizing: border-box; }
+  button { width: 100%; margin-top: 10px; padding: 12px; border: none; border-radius: 8px; background: #2f5d3a; color: #fff; font-size: 1rem; letter-spacing: .1em; cursor: pointer; }
+  button.ghost { background: #fff; color: #2f5d3a; border: 1px solid #2f5d3a; }
+  pre { background: #f3efe6; padding: 12px; border-radius: 8px; font-size: .8rem; overflow-x: auto; white-space: pre-wrap; word-break: break-all; }
+  .ok { color: #2f7d3a; } .err { color: #b03a2e; }
+</style>
+</head>
+<body>
+<h1>🔌 串接示範站</h1>
+<div class="hint">這頁假裝是「別人的網站」。它沒有任何特殊權限，只用一組 API key 呼叫兌換碼系統的公開整合 API（<code>/api/v1/*</code>），就能做到：買家輸密碼開通 → 查剩餘 → 扣次數。<br>API key 請向系統管理員索取（在發碼後台「API 金鑰」產生）。</div>
+
+<div class="card">
+  <label>API key（ppk_live_…，只存在這頁，不會送去別的地方）</label>
+  <input id="apikey" placeholder="ppk_live_…" autocomplete="off">
+</div>
+
+<div class="card">
+  <h3>1. 買家輸入密碼開通</h3>
+  <label>兌換密碼</label>
+  <input id="code" placeholder="例如：ABCD-2345-EFGH" autocomplete="off">
+  <button onclick="doRedeem()">開通</button>
+  <pre id="out1">等待操作…</pre>
+</div>
+
+<div class="card">
+  <h3>2. 查憑證狀態</h3>
+  <div class="hint">開通後拿到的 token，存在你自己網站的資料庫（這裡為示範存在頁面上）。</div>
+  <label>憑證 token</label>
+  <input id="token" placeholder="開通後自動填入" autocomplete="off">
+  <button class="ghost" onclick="doVerify()">查詢剩餘</button>
+  <pre id="out2">等待操作…</pre>
+</div>
+
+<div class="card">
+  <h3>3. 扣一次使用次數</h3>
+  <div class="hint">買家用掉一次權益（例如看了一次 AI 解卦）時呼叫。單次碼扣完即失效；月訂只檢查是否有效，不扣次數。</div>
+  <button class="ghost" onclick="doConsume()">扣一次</button>
+  <pre id="out3">等待操作…</pre>
+</div>
+
+<script>
+const API = "https://yiwen-api.taicalc.com";
+const $ = id => document.getElementById(id);
+function key() { return $("apikey").value.trim(); }
+async function call(path, method, body) {
+  const r = await fetch(API + path, { method, headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key() }, body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json().catch(() => ({}));
+  return { status: r.status, body: d };
+}
+async function doRedeem() {
+  $("out1").textContent = "開通中…";
+  const { status, body } = await call("/api/v1/redeem", "POST", { code: $("code").value.trim() });
+  $("out1").innerHTML = `<span class="${body.ok ? "ok" : "err"}">HTTP ${status}</span>\n` + JSON.stringify(body, null, 2).replace(/</g, "&lt;");
+  if (body.ok && body.token) $("token").value = body.token;
+}
+async function doVerify() {
+  $("out2").textContent = "查詢中…";
+  const { status, body } = await call("/api/v1/verify?token=" + encodeURIComponent($("token").value.trim()), "GET");
+  let extra = "";
+  if (body.ok && body.type === "subscription" && body.expires_at) {
+    const d = new Date(body.expires_at * 1000);
+    const days = Math.max(0, Math.ceil((body.expires_at - Date.now() / 1000) / 86400));
+    extra = `\n剩餘天數：約 ${days} 天（到期：${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}）`;
+  }
+  $("out2").innerHTML = `<span class="${body.ok ? "ok" : "err"}">HTTP ${status}</span>\n` + JSON.stringify(body, null, 2).replace(/</g, "&lt;") + extra;
+}
+async function doConsume() {
+  $("out3").textContent = "扣除中…";
+  const { status, body } = await call("/api/v1/consume", "POST", { token: $("token").value.trim() });
+  $("out3").innerHTML = `<span class="${body.ok ? "ok" : "err"}">HTTP ${status}</span>\n` + JSON.stringify(body, null, 2).replace(/</g, "&lt;");
+}
+</script>
+</body>
+</html>

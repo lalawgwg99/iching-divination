@@ -452,56 +452,171 @@ export default {
     }
 
     /* ===== 兌換碼：驗證＋核銷＋發憑證（2026-10-11 Phase 0） ===== */
+    /* ===== 兌換碼：驗證＋核銷＋發憑證（2026-10-11 Phase 0；/v1 共用核心） ===== */
+    // 共用兌換核心：回傳 {ok:true, type, uses_left, expires_at, token} 或 {ok:false, error, hint?, status?}
+    async function redeemCode(env, req, codeInput) {
+      const iph = await ipHash(req);
+      const now = Math.floor(Date.now() / 1000);
+      // 驗碼限流：同 IP 10 分鐘內超過 30 次嘗試 → 429
+      const att = await env.DB.prepare(
+        "SELECT COUNT(*) c FROM redemption_events WHERE ip_hash = ? AND created_at > ? AND event_type = 'redeem_attempt'")
+        .bind(iph, now - 600).first();
+      if (att && att.c >= 30) return { ok: false, error: "too_many", status: 429 };
+      const logFail = async (reason) => {
+        try {
+          await env.DB.prepare(
+            "INSERT INTO redemption_events(code_id, event_type, result, ip_hash, created_at) VALUES(NULL, 'redeem_attempt', ?, ?, ?)")
+            .bind(reason, iph, now).run();
+        } catch {}
+      };
+      const norm = normalizeCode(codeInput);
+      if (!norm) { await logFail("empty"); return { ok: false, error: "invalid", status: 400 }; }
+      if (/[0O1IL]/.test(norm)) { // 密碼字元集沒有這些字，直接給抄寫提示，不查庫
+        await logFail("confusable");
+        return { ok: false, error: "invalid_hint", hint: "密碼不會包含 0、O、1、I、L，請檢查是否抄錯", status: 400 };
+      }
+      if (norm.length !== 12) { await logFail("bad_length"); return { ok: false, error: "invalid", status: 400 }; }
+      const h = await sha256hex(norm);
+      const code = await env.DB.prepare("SELECT * FROM codes WHERE code_hash = ?").bind(h).first();
+      // 失敗一律模糊回應，不區分不存在／已用／過期／撤銷
+      if (!code || code.status !== "active" || (code.expires_at && code.expires_at < now) || code.used_count >= code.max_uses) {
+        await logFail(!code ? "not_found" : "invalid_state");
+        return { ok: false, error: "invalid", status: 400 };
+      }
+      const tokBytes = crypto.getRandomValues(new Uint8Array(32));
+      const token = b64url(tokBytes);
+      const th = await sha256hex(token);
+      const usesLeft = code.type === "subscription" ? null : 1;
+      const expAt = code.type === "subscription" ? now + 30 * 86400 : 0;
+      const idem = "r" + h.slice(0, 16) + "-" + now + "-" + code.id;
+      const rs = await env.DB.batch([
+        env.DB.prepare("UPDATE codes SET used_count = used_count + 1 WHERE id = ? AND used_count < max_uses").bind(code.id),
+        env.DB.prepare("INSERT INTO redemption_events(code_id, event_type, result, idempotency_key, ip_hash, created_at) VALUES(?, 'redeem', 'ok', ?, ?, ?)")
+          .bind(code.id, idem, iph, now),
+        env.DB.prepare("INSERT INTO credentials(code_id, token_hash, type, uses_left, expires_at, created_at) VALUES(?, ?, ?, ?, ?, ?)")
+          .bind(code.id, th, code.type, usesLeft, expAt, now),
+      ]);
+      if (!rs[0].meta.changes) { await logFail("race_used_up"); return { ok: false, error: "invalid", status: 400 }; }
+      return { ok: true, type: code.type, uses_left: usesLeft, expires_at: expAt, token };
+    }
     if (path === "/redeem" && req.method === "POST") {
       try {
         const b = await req.json();
-        const iph = await ipHash(req);
-        const now = Math.floor(Date.now() / 1000);
-        // 驗碼限流：同 IP 10 分鐘內超過 30 次嘗試 → 429
-        const att = await env.DB.prepare(
-          "SELECT COUNT(*) c FROM redemption_events WHERE ip_hash = ? AND created_at > ? AND event_type = 'redeem_attempt'")
-          .bind(iph, now - 600).first();
-        if (att && att.c >= 30) return json(req, { error: "too_many" }, 429);
-        const logFail = async (reason) => {
-          try {
-            await env.DB.prepare(
-              "INSERT INTO redemption_events(code_id, event_type, result, ip_hash, created_at) VALUES(NULL, 'redeem_attempt', ?, ?, ?)")
-              .bind(reason, iph, now).run();
-          } catch {}
-        };
-        const norm = normalizeCode(b.code);
-        if (!norm) { await logFail("empty"); return json(req, { error: "invalid" }, 400); }
-        if (/[0O1IL]/.test(norm)) { // 密碼字元集沒有這些字，直接給抄寫提示，不查庫
-          await logFail("confusable");
-          return json(req, { error: "invalid_hint", hint: "密碼不會包含 0、O、1、I、L，請檢查是否抄錯" }, 400);
+        const r = await redeemCode(env, req, b.code);
+        if (!r.ok) {
+          const body = { error: r.error };
+          if (r.hint) body.hint = r.hint;
+          return json(req, body, r.status || 400);
         }
-        if (norm.length !== 12) { await logFail("bad_length"); return json(req, { error: "invalid" }, 400); }
-        const h = await sha256hex(norm);
-        const code = await env.DB.prepare("SELECT * FROM codes WHERE code_hash = ?").bind(h).first();
-        // 失敗一律模糊回應，不區分不存在／已用／過期／撤銷
-        if (!code || code.status !== "active" || (code.expires_at && code.expires_at < now) || code.used_count >= code.max_uses) {
-          await logFail(!code ? "not_found" : "invalid_state");
-          return json(req, { error: "invalid" }, 400);
-        }
-        const tokBytes = crypto.getRandomValues(new Uint8Array(32));
-        const token = b64url(tokBytes);
-        const th = await sha256hex(token);
-        const usesLeft = code.type === "subscription" ? null : 1;
-        const expAt = code.type === "subscription" ? now + 30 * 86400 : 0;
-        const idem = "r" + h.slice(0, 16) + "-" + now + "-" + code.id;
-        const rs = await env.DB.batch([
-          env.DB.prepare("UPDATE codes SET used_count = used_count + 1 WHERE id = ? AND used_count < max_uses").bind(code.id),
-          env.DB.prepare("INSERT INTO redemption_events(code_id, event_type, result, idempotency_key, ip_hash, created_at) VALUES(?, 'redeem', 'ok', ?, ?, ?)")
-            .bind(code.id, idem, iph, now),
-          env.DB.prepare("INSERT INTO credentials(code_id, token_hash, type, uses_left, expires_at, created_at) VALUES(?, ?, ?, ?, ?, ?)")
-            .bind(code.id, th, code.type, usesLeft, expAt, now),
-        ]);
-        if (!rs[0].meta.changes) { await logFail("race_used_up"); return json(req, { error: "invalid" }, 400); }
         const headers = { ...cors(req),
-          "Set-Cookie": `yiwen_cred=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=2592000` };
-        return new Response(JSON.stringify({ ok: true, type: code.type, uses_left: usesLeft, expires_at: expAt, token }),
+          "Set-Cookie": `yiwen_cred=${encodeURIComponent(r.token)}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=2592000` };
+        return new Response(JSON.stringify({ ok: true, type: r.type, uses_left: r.uses_left, expires_at: r.expires_at, token: r.token }),
           { headers });
       } catch (e) { return json(req, { error: "redeem_failed" }, 500); }
+    }
+
+    /* ===== 對外整合 API v1（2026-10-11）：給別的網站串接，用 API key 認證 ===== */
+    // API key 格式 ppk_live_…，庫裡只存 hash；scopes 以逗號分隔：redeem,verify,consume
+    async function getApiKey(env, req) {
+      const ah = req.headers.get("Authorization") || "";
+      if (!ah.startsWith("Bearer ")) return null;
+      const tok = ah.slice(7).trim();
+      if (!tok.startsWith("ppk_live_")) return null;
+      const h = await sha256hex(tok);
+      const k = await env.DB.prepare("SELECT * FROM api_keys WHERE key_hash = ?").bind(h).first();
+      if (!k || k.revoked) return null;
+      return k;
+    }
+    function hasScope(k, s) { return String(k.scopes || "").split(",").map(x => x.trim()).includes(s); }
+    async function getCredByToken(env, tok) {
+      if (!tok) return null;
+      const th = await sha256hex(String(tok));
+      const c = await env.DB.prepare("SELECT * FROM credentials WHERE token_hash = ?").bind(th).first();
+      if (!c || c.revoked) return null;
+      if (c.expires_at && c.expires_at < Date.now() / 1000) return null;
+      return c;
+    }
+    async function requireScope(env, req, scope) {
+      const k = await getApiKey(env, req);
+      if (!k) return { key: null, err: json(req, { error: "unauthorized" }, 401) };
+      if (!hasScope(k, scope)) return { key: null, err: json(req, { error: "forbidden_scope" }, 403) };
+      return { key: k, err: null };
+    }
+    // 開通：買家在別的網站輸密碼，別的網站後端拿 API key 來兌換
+    if (path === "/api/v1/redeem" && req.method === "POST") {
+      const { err } = await requireScope(env, req, "redeem");
+      if (err) return err;
+      try {
+        const b = await req.json();
+        const r = await redeemCode(env, req, b.code);
+        if (!r.ok) {
+          const body = { error: r.error };
+          if (r.hint) body.hint = r.hint;
+          return json(req, body, r.status || 400);
+        }
+        // 不設 cookie：server-to-server，token 請對方網站自己保管發給買家
+        return json(req, { ok: true, token: r.token, type: r.type, uses_left: r.uses_left, expires_at: r.expires_at });
+      } catch (e) { return json(req, { error: "redeem_failed" }, 500); }
+    }
+    // 查憑證狀態：還有幾次／到何時到期
+    if (path === "/api/v1/verify" && req.method === "GET") {
+      const { err } = await requireScope(env, req, "verify");
+      if (err) return err;
+      const tok = new URL(req.url).searchParams.get("token");
+      const c = await getCredByToken(env, tok);
+      if (!c) return json(req, { ok: false, reason: "invalid_or_expired" });
+      return json(req, { ok: true, type: c.type, uses_left: c.uses_left, expires_at: c.expires_at });
+    }
+    // 扣一次：單次碼扣完即失效；月訂不扣次數只檢查有效
+    if (path === "/api/v1/consume" && req.method === "POST") {
+      const { err } = await requireScope(env, req, "consume");
+      if (err) return err;
+      try {
+        const b = await req.json();
+        const c = await getCredByToken(env, b.token);
+        if (!c) return json(req, { ok: false, reason: "invalid_or_expired" }, 404);
+        if (c.type === "subscription") return json(req, { ok: true, type: c.type, uses_left: null, expires_at: c.expires_at });
+        if (!c.uses_left || c.uses_left <= 0) return json(req, { ok: false, reason: "quota_exhausted" }, 409);
+        const now = Math.floor(Date.now() / 1000);
+        const up = await env.DB.prepare("UPDATE credentials SET uses_left = uses_left - 1, last_used_at = ? WHERE id = ? AND uses_left > 0")
+          .bind(now, c.id).run();
+        if (!up.meta.changes) return json(req, { ok: false, reason: "quota_exhausted" }, 409);
+        return json(req, { ok: true, type: c.type, uses_left: c.uses_left - 1, expires_at: c.expires_at });
+      } catch (e) { return json(req, { error: "consume_failed" }, 500); }
+    }
+    // API key 管理（x-admin-key）
+    function genApiKey() {
+      const r = crypto.getRandomValues(new Uint8Array(24));
+      return "ppk_live_" + b64url(r);
+    }
+    if (path === "/api/admin/apikeys" && req.method === "POST") {
+      if (req.headers.get("x-admin-key") !== env.ADMIN_KEY) return json(req, { error: "forbidden" }, 403);
+      try {
+        const b = await req.json();
+        const name = String(b.name || "").trim().slice(0, 60) || "未命名";
+        const scopes = String(b.scopes || "redeem,verify,consume").split(",").map(s => s.trim())
+          .filter(s => ["redeem", "verify", "consume"].includes(s)).join(",") || "redeem";
+        const key = genApiKey();
+        const h = await sha256hex(key);
+        const now = Math.floor(Date.now() / 1000);
+        await env.DB.prepare("INSERT INTO api_keys(key_hash, key_prefix, name, scopes, created_at) VALUES(?, ?, ?, ?, ?)")
+          .bind(h, key.slice(0, 14) + "…", name, scopes, now).run();
+        return json(req, { ok: true, key, warning: "明碼只顯示一次，請立即複製給對方網站" });
+      } catch (e) { return json(req, { error: "gen_failed" }, 500); }
+    }
+    if (path === "/api/admin/apikeys" && req.method === "GET") {
+      if (req.headers.get("x-admin-key") !== env.ADMIN_KEY) return json(req, { error: "forbidden" }, 403);
+      const rows = await env.DB.prepare("SELECT id, key_prefix, name, scopes, revoked, datetime(created_at,'unixepoch','+8 hours') t FROM api_keys ORDER BY id DESC LIMIT 100").all();
+      return json(req, { keys: rows.results || [] });
+    }
+    if (path === "/api/admin/apikeys/revoke" && req.method === "POST") {
+      if (req.headers.get("x-admin-key") !== env.ADMIN_KEY) return json(req, { error: "forbidden" }, 403);
+      try {
+        const b = await req.json();
+        const id = parseInt(b.id) || 0;
+        await env.DB.prepare("UPDATE api_keys SET revoked = 1 WHERE id = ?").bind(id).run();
+        return json(req, { ok: true });
+      } catch (e) { return json(req, { error: "revoke_failed" }, 500); }
     }
 
     /* ===== 憑證狀態（前端顯示用） ===== */
