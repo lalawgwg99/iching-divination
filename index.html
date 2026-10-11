@@ -64,6 +64,25 @@ textarea::placeholder{font-size:.88rem; color:#a09a89; line-height:30px;}
 .life-reading b::before{content:"◈ "; color:var(--cinnabar);}
 .life-reading p{margin:8px 0 0; font-size:.93rem;}
 .life-reading .how{font-size:.8rem; color:var(--ink2); border-top:1px dashed var(--line); padding-top:8px;}
+/* 設定齒輪 */
+#gearBtn{position:fixed; top:calc(10px + env(safe-area-inset-top)); right:12px; z-index:70;
+  width:38px; height:38px; border-radius:50%; border:1px solid var(--line);
+  background:rgba(253,251,244,.92); color:var(--ink2); cursor:pointer;
+  display:flex; align-items:center; justify-content:center; padding:0;}
+#gearBtn:active{background:var(--paper2);}
+#gearPanel{position:fixed; top:calc(56px + env(safe-area-inset-top)); right:12px; z-index:70;
+  width:248px; background:#fffdf8; border:1px solid var(--line); border-radius:12px;
+  box-shadow:0 8px 28px rgba(0,0,0,.14); padding:14px 16px;}
+.gp-title{font-size:.82rem; letter-spacing:.3em; text-indent:.3em; color:var(--ink2); margin-bottom:10px; text-align:center;}
+.gp-row{display:flex; align-items:center; justify-content:space-between; padding:6px 0;}
+.gp-row span{font-size:.92rem; color:var(--ink);}
+.gp-note{font-size:.78rem; color:var(--ink2); line-height:1.7; margin-top:8px; text-align:justify;}
+.switch{position:relative; width:46px; height:27px; border-radius:14px; border:none; cursor:pointer;
+  background:#c9c2b2; transition:background .2s; padding:0;}
+.switch i{position:absolute; top:3px; left:3px; width:21px; height:21px; border-radius:50%;
+  background:#fffdf8; transition:left .2s; box-shadow:0 1px 3px rgba(0,0,0,.25);}
+.switch.on{background:var(--brand);}
+.switch.on i{left:22px;}
 /* 每日一局（純SVG） */
 .qj-wrap{position:relative; width:100%; max-width:340px; margin:10px auto; aspect-ratio:910/1010;}
 .qj-svg{position:absolute; inset:0; width:100%; height:100%;}
@@ -459,6 +478,12 @@ header.top{position:relative;}
 </style>
 </head>
 <body>
+<button id="gearBtn" aria-label="設定"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1 1.55V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.55 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.55-1H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.89a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.01A1.7 1.7 0 0 0 10 3.09V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.55 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.01A1.7 1.7 0 0 0 20.91 10H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z"/></svg></button>
+<div id="gearPanel" style="display:none;">
+  <div class="gp-title">設定</div>
+  <div class="gp-row" id="pushRow"><span>每日推播</span><button id="pushToggle" class="switch" aria-label="每日推播開關"><i></i></button></div>
+  <div class="gp-note">每天早上 7 點推送今日一卦。iPhone 需先「加入主畫面」才能收到。</div>
+</div>
 <div class="wrap">
 <header class="top">
   <div class="seal">易</div>
@@ -479,8 +504,6 @@ header.top{position:relative;}
   <div class="daily-reflect" id="dailyReflect"></div>
   <div class="daily-yao" id="dailyYao"></div>
   <button id="dailyShare" class="btn ghost" style="margin-top:14px;">存成圖卡</button>
-  <button id="pushBtn" class="btn ghost" style="margin-top:8px;">開啟每日推播</button>
-  <div class="hint" style="margin-top:6px;">每天早上 7 點，把今日一卦推到你手機。iPhone 請先「加入主畫面」才能收到推播。</div>
 </section>
 
 <section class="card plain" id="qianCard">
@@ -602,11 +625,11 @@ header.top{position:relative;}
   <div class="life-pick" id="lifePick" style="display:none;"><select id="lifeYearSel"></select></div>
   <div id="lifeInfo" class="life-info" style="display:none;"></div>
   <button id="lifeShare" class="btn ghost" style="display:none;margin:0 0 12px;width:auto;padding:8px 18px;font-size:.85rem;">存成命運圖</button>
-  <div class="hint" style="margin-top:14px;">人生運勢圖為本站自創的娛樂模型（以生日為種子起卦），非古法占斷，僅供參考，非投資建議。生日只存在你的瀏覽器，不會上傳。</div>
+
 </section>
 
 <footer>
-  <div class="disc">易問為決策參考工具，卦象解讀僅供思考角度之用，不構成命定之言，亦非專業建議（醫療、法律、投資請諮詢專業人士）。</div>
+  <div class="disc">易問為決策參考工具，卦象解讀僅供思考角度之用，非專業建議（醫療、法律、投資請諮詢專業人士）；生日等資料只存於你的瀏覽器，不會上傳。</div>
   <div class="colophon">
     <div><span class="seal-sm">易問</span></div>
     <div class="yr">觀變玩占・<span id="year"></span></div>
@@ -623,7 +646,7 @@ header.top{position:relative;}
 </nav>
 <script src="qixiang.js?v=20261010a"></script>
 <script src="qipan.js?v=20261010d"></script>
-<script src="app.js?v=20261010q"></script>
+<script src="app.js?v=20261010r"></script>
 
 </body>
 </html>

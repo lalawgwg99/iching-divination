@@ -789,15 +789,23 @@ function b64ToU8(s) {
   return b;
 }
 function renderPushBtn(on) {
-  const b = $("pushBtn"); if (!b) return;
-  b.textContent = on ? "已開啟每日推播（點按關閉）" : "開啟每日推播";
+  const b = $("pushToggle"); if (!b) return;
+  b.classList.toggle("on", !!on);
 }
 async function initPush() {
-  const btn = $("pushBtn"); if (!btn) return;
-  if (!("serviceWorker" in navigator) || !("PushManager" in window)) { btn.style.display = "none"; return; }
+  const gear = $("gearBtn"), panel = $("gearPanel");
+  if (!("serviceWorker" in navigator) || !("PushManager" in window)) { gear.style.display = "none"; return; }
+  gear.onclick = (e) => {
+    e.stopPropagation();
+    panel.style.display = panel.style.display === "none" ? "" : "none";
+  };
+  document.addEventListener("click", (e) => {
+    if (panel.style.display !== "none" && !panel.contains(e.target)) panel.style.display = "none";
+  });
+  const btn = $("pushToggle");
   let reg;
   try { reg = await navigator.serviceWorker.register("/sw.js"); }
-  catch (e) { btn.style.display = "none"; return; }
+  catch (e) { gear.style.display = "none"; return; }
   let sub = null;
   try { sub = await reg.pushManager.getSubscription(); } catch (e) {}
   renderPushBtn(!!sub);
