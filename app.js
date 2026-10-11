@@ -66,22 +66,26 @@ async function doRedeem() {
   const code = inp.value.trim();
   if (!code) { msg.textContent = "請輸入密碼"; return; }
   msg.textContent = "驗證中…";
-  try {
-    const r = await fetch(API_BASE + "/redeem", { method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
-    const d = await r.json();
-    if (d.ok) {
-      try { localStorage.setItem("yiwen_cred_token", d.token); } catch (e) {}
-      msg.textContent = "";
-      inp.value = "";
-      await loadCred();
-      toast(d.type === "subscription" ? "開通成功！月訂會員 30 天無限解卦" : "開通成功！可解卦 1 次，用完即失效");
+  for (let i = 0; i < 3; i++) {
+    try {
+      const r = await fetch(API_BASE + "/redeem", { method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+      const d = await r.json();
+      if (d.ok) {
+        try { localStorage.setItem("yiwen_cred_token", d.token); } catch (e) {}
+        msg.textContent = "";
+        inp.value = "";
+        await loadCred();
+        toast(d.type === "subscription" ? "開通成功！月訂會員 30 天無限解卦" : "開通成功！可解卦 1 次，用完即失效");
+        return;
+      }
+      msg.textContent = d.error === "invalid_hint" ? d.hint
+        : d.error === "too_many" ? "嘗試太多次，請 10 分鐘後再試"
+        : "密碼無效、已用過或已過期，請檢查";
       return;
-    }
-    msg.textContent = d.error === "invalid_hint" ? d.hint
-      : d.error === "too_many" ? "嘗試太多次，請 10 分鐘後再試"
-      : "密碼無效、已用過或已過期，請檢查";
-  } catch (e) { msg.textContent = "連線失敗，請再試一次"; }
+    } catch (e) { if (i < 2) await new Promise(r => setTimeout(r, 1200)); }
+  }
+  msg.textContent = "連線失敗，請檢查網路後再試一次";
 }
 function openRedeem() {
   const p = $("authPanel");
@@ -1531,17 +1535,21 @@ load();
   if (!c) return;
   history.replaceState(null, "", location.pathname);
   setTimeout(async () => {
-    try {
-      const r = await fetch(API_BASE + "/redeem", { method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: c }) });
-      const d = await r.json();
-      if (d.ok) {
-        try { localStorage.setItem("yiwen_cred_token", d.token); } catch (e) {}
-        await loadCred();
-        toast(d.type === "subscription" ? "開通成功！月訂會員 30 天無限解卦" : "開通成功！可解卦 1 次，用完即失效");
-      } else {
-        toast(d.error === "invalid_hint" ? d.hint : "這條開通連結無效或已用過");
-      }
-    } catch (e) { toast("連線失敗，請再試一次"); }
+    for (let i = 0; i < 3; i++) {
+      try {
+        const r = await fetch(API_BASE + "/redeem", { method: "POST", credentials: "include",
+          headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: c }) });
+        const d = await r.json();
+        if (d.ok) {
+          try { localStorage.setItem("yiwen_cred_token", d.token); } catch (e) {}
+          await loadCred();
+          toast(d.type === "subscription" ? "開通成功！月訂會員 30 天無限解卦" : "開通成功！可解卦 1 次，用完即失效");
+        } else {
+          toast(d.error === "invalid_hint" ? d.hint : "這條開通連結無效或已用過");
+        }
+        return;
+      } catch (e) { if (i < 2) await new Promise(r => setTimeout(r, 1200)); }
+    }
+    toast("連線失敗，請檢查網路後再試一次");
   }, 800);
 })();
