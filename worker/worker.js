@@ -552,9 +552,19 @@ export default {
     if (path === "/api/admin/codes/revoke" && req.method === "POST") {
       try {
         const b = await req.json();
-        await env.DB.prepare("UPDATE codes SET status = 'revoked' WHERE id = ?").bind(parseInt(b.id) || 0).run();
-        const th = b.token_hash ? String(b.token_hash) : null;
-        if (th) await env.DB.prepare("UPDATE credentials SET revoked = 1 WHERE token_hash = ?").bind(th).run();
+        // 支援 id 或密碼字串兩種撤銷方式
+        let id = parseInt(b.id) || 0;
+        if (!id && b.code) {
+          const h = await sha256hex(normalizeCode(b.code));
+          const row = await env.DB.prepare("SELECT id FROM codes WHERE code_hash = ?").bind(h).first();
+          if (row) id = row.id;
+        }
+        if (!id) return json(req, { error: "not_found" }, 404);
+        // 撤銷密碼本身＋所有由此密碼開通的憑證（已開通的立即失效）
+        await env.DB.batch([
+          env.DB.prepare("UPDATE codes SET status = 'revoked' WHERE id = ?").bind(id),
+          env.DB.prepare("UPDATE credentials SET revoked = 1 WHERE code_id = ?").bind(id),
+        ]);
         return json(req, { ok: true });
       } catch (e) { return json(req, { error: "revoke_failed" }, 500); }
     }
