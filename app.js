@@ -106,10 +106,63 @@ function openRedeem() {
   if (p) { p.classList.add("open"); const i = $("redeemInput"); if (i) i.focus(); }
   else { const t = $("authToggle"); if (t) t.click(); }
 }
+// 商家轉帳帳號（2026-10-11 驗證收款制）：待商家提供後填入
+const MERCHANT_BANK = "請向商家索取轉帳帳號";
+let __orderSeq = 0;
 function plansHTML() {
-  // 2026-10-11 兌換碼制：綠界購買改為密碼開通引導
-  return `<div class="plans"><div class="hint" style="text-align:center;padding:12px 0;">
-    有密碼的人請點右上「輸入密碼」開通；<br>想購買單次問事（NT$49）或月訂（NT$149），請私訊我們。</div></div>`;
+  // 2026-10-11 驗證收款制：轉帳下單表單（買家填末五碼，商家後台確認後發碼）
+  const q = "oq" + (++__orderSeq);
+  return `<div class="plans"><div class="hint" style="text-align:center;padding:8px 0;">
+    有密碼的人請點右上「輸入密碼」開通。<br>還沒買？轉帳後填下面表格，商家確認就發開通連結給你。</div>
+  <div id="${q}-form" style="text-align:left;max-width:420px;margin:0 auto;">
+    <label style="display:block;font-size:.85rem;color:var(--ink2);margin:8px 0 4px;">方案</label>
+    <select id="${q}-type" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;background:#fff;">
+      <option value="one_time">單次問事 NT$49（AI 解卦 1 次）</option>
+      <option value="subscription">月訂 NT$149（30 天無限解卦）</option>
+    </select>
+    <label style="display:block;font-size:.85rem;color:var(--ink2);margin:8px 0 4px;">你的名字</label>
+    <input id="${q}-name" placeholder="例如：陳先生" maxlength="40" autocomplete="off"
+      style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;">
+    <label style="display:block;font-size:.85rem;color:var(--ink2);margin:8px 0 4px;">聯絡方式（LINE ID 或電話，收到開通連結用）</label>
+    <input id="${q}-contact" placeholder="例如：0912-345678" maxlength="60" autocomplete="off"
+      style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;">
+    <div class="hint" style="margin:10px 0 4px;line-height:1.8;">轉帳帳號：${MERCHANT_BANK}<br>轉帳完成後，填寫帳號末五碼：</div>
+    <input id="${q}-last5" placeholder="5 位數字" maxlength="5" inputmode="numeric" autocomplete="off"
+      style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1.1rem;letter-spacing:.2em;">
+    <button class="btn" style="width:100%;margin-top:12px;padding:12px;letter-spacing:.2em;" onclick="submitOrder('${q}')">送出訂單</button>
+    <div id="${q}-msg" class="hint" style="margin-top:8px;min-height:1.2em;color:#b03a2e;"></div>
+  </div></div>`;
+}
+async function submitOrder(q) {
+  const msg = $(q + "-msg");
+  const name = $(q + "-name").value.trim();
+  const contact = $(q + "-contact").value.trim();
+  const last5 = $(q + "-last5").value.replace(/\D/g, "");
+  const type = $(q + "-type").value;
+  if (!name) { msg.textContent = "請填你的名字"; return; }
+  if (!contact) { msg.textContent = "請填聯絡方式"; return; }
+  if (last5.length !== 5) { msg.textContent = "末五碼要是 5 位數字"; return; }
+  msg.style.color = ""; msg.textContent = "送出中…";
+  for (let i = 0; i < 3; i++) {
+    try {
+      const r = await fetch(API_BASE + "/api/order", { method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ buyer_name: name, contact, type, last5 }) });
+      const d = await r.json();
+      if (d.ok) {
+        $(q + "-form").innerHTML = `<div style="text-align:center;padding:16px 0;line-height:2;">
+          ✅ 訂單已送出！<br><span style="font-size:.9rem;color:var(--ink2);">商家確認收到轉帳後，會把開通連結傳給你。<br>（聯絡方式：${contact.replace(/</g, "&lt;")}）</span></div>`;
+        return;
+      }
+      msg.style.color = "#b03a2e";
+      msg.textContent = d.error === "too_many" ? "送出太多次，請 10 分鐘後再試"
+        : d.error === "need_name" ? "請填你的名字" : d.error === "need_contact" ? "請填聯絡方式"
+        : d.error === "bad_last5" ? "末五碼要是 5 位數字" : "送出失敗，請再試一次";
+      return;
+    } catch (e) { if (i < 2) await new Promise(r => setTimeout(r, 1200)); }
+  }
+  msg.style.color = "#b03a2e";
+  msg.textContent = "連線失敗，請檢查網路後再試一次";
 }
 function toast(msg) {
   const el = document.createElement("div");

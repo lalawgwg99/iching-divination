@@ -51,6 +51,12 @@
 </div>
 
 <div class="card">
+  <h2>待確認收款 <button class="mini" id="ordBtn" style="float:right;">重新整理</button></h2>
+  <div class="hint">客人轉帳後會在這裡出現。去查銀行帳，末五碼對得上就按「確認收款並發碼」，系統自動產生密碼＋開通連結，你複製傳給客人就行。對不上就按「退回」。</div>
+  <div id="ordOut"><div class="sub">載入中…</div></div>
+</div>
+
+<div class="card">
   <h2>產生密碼</h2>
   <div class="steps">
     <b>1.</b> 客人轉帳（或付現）後，在下面填資料按「產生密碼」<br>
@@ -186,7 +192,51 @@ async function saveReassign(id) {
 }
 $("reloadBtn").onclick = loadList;
 $("expBtn").onclick = loadExp;
-if (akey()) { loadList(); loadExp(); }
+$("ordBtn").onclick = loadOrders;
+async function loadOrders() {
+  if (!akey()) { $("ordOut").innerHTML = `<div class="sub">先填管理密鑰</div>`; return; }
+  try {
+    const d = await api("/api/admin/orders", "GET");
+    const pend = d.orders.filter(o => o.status === "pending");
+    const done = d.orders.filter(o => o.status !== "pending");
+    let h = "";
+    if (!pend.length) h += `<div class="ok-line">✅ 目前沒有待確認的訂單</div>`;
+    h += pend.map(o => `<div class="exp-item"><b>${esc(o.buyer_name)}</b>・${esc(o.contact)}<br>` +
+      `方案：${o.type === "subscription" ? "月訂 NT$149" : "單次 NT$49"}・轉帳末五碼：<b style="font-size:1.1rem;letter-spacing:.1em;">${esc(o.last5)}</b>・${esc(o.t)}<br>` +
+      `<button class="mini" onclick="confirmOrder(${o.id}, this)">確認收款並發碼</button>` +
+      `<button class="mini" onclick="rejectOrder(${o.id}, this)">退回</button></div>`).join("");
+    if (done.length) h += `<div class="hint" style="margin-top:10px;">已處理：</div>` + done.slice(0, 10).map(o =>
+      `<div style="font-size:.82rem;color:#8a7f6d;padding:4px 0;">#${o.id} ${esc(o.buyer_name)}・${o.type === "subscription" ? "月訂" : "單次"}・${o.status === "confirmed" ? "已發碼" : "已退回"}</div>`).join("");
+    $("ordOut").innerHTML = h;
+  } catch (e) { $("ordOut").innerHTML = `<div class="sub">${esc(e.message)}</div>`; }
+}
+async function confirmOrder(id, btn) {
+  if (!btn.dataset.armed) {
+    btn.dataset.armed = "1"; btn.textContent = "再按一次確認（會自動產生密碼）";
+    setTimeout(() => { if (btn.isConnected) { delete btn.dataset.armed; btn.textContent = "確認收款並發碼"; } }, 8000);
+    return;
+  }
+  btn.textContent = "發碼中…";
+  try {
+    const d = await api("/api/admin/orders/confirm", "POST", { id });
+    const link = "https://yiwen.taicalc.com/?code=" + encodeURIComponent(d.code);
+    $("ordOut").innerHTML = `<div class="ok-line">✅ 收款確認，密碼已產生！</div>` +
+      `<div class="code-out"><span>${esc(d.code)}</span><button class="mini" onclick="navigator.clipboard.writeText('${esc(d.code)}').then(()=>this.textContent='已複製')">複製密碼</button></div>` +
+      `<div style="margin:-4px 0 10px;"><button class="mini" onclick="navigator.clipboard.writeText('${link}').then(()=>this.textContent='已複製連結')">複製開通連結傳給客人</button></div>` +
+      `<button class="mini" onclick="loadOrders()">回訂單清單</button>`;
+    loadList(); loadExp();
+  } catch (e) { alert(e.message); loadOrders(); }
+}
+async function rejectOrder(id, btn) {
+  if (!btn.dataset.armed) {
+    btn.dataset.armed = "1"; btn.textContent = "確定退回？";
+    setTimeout(() => { if (btn.isConnected) { delete btn.dataset.armed; btn.textContent = "退回"; } }, 5000);
+    return;
+  }
+  try { await api("/api/admin/orders/reject", "POST", { id }); loadOrders(); }
+  catch (e) { alert(e.message); }
+}
+if (akey()) { loadList(); loadExp(); loadOrders(); }
 </script>
 </body>
 </html>

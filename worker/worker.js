@@ -517,7 +517,7 @@ export default {
     }
 
     /* ===== 發碼後台（x-admin-key，2026-10-11 Phase 0） ===== */
-    const needAdmin = (path === "/api/admin/codes" || path === "/api/admin/codes/revoke" || path === "/api/admin/codes/update") && req.method === "POST";
+    const needAdmin = (path === "/api/admin/codes" || path === "/api/admin/codes/revoke" || path === "/api/admin/codes/update" || path === "/api/admin/orders/confirm" || path === "/api/admin/orders/reject") && req.method === "POST";
     if (needAdmin && req.headers.get("x-admin-key") !== env.ADMIN_KEY) {
       return json(req, { error: "forbidden" }, 403);
     }
@@ -565,6 +565,40 @@ export default {
         return json(req, { ok: true });
       } catch (e) { return json(req, { error: "update_failed" }, 500); }
     }
+    // 待確認訂單清單
+    if (path === "/api/admin/orders" && req.method === "GET") {
+      if (req.headers.get("x-admin-key") !== env.ADMIN_KEY) return json(req, { error: "forbidden" }, 403);
+      const rows = await env.DB.prepare(
+        "SELECT id, buyer_name, contact, type, last5, status, code_id, datetime(created_at,'unixepoch','+8 hours') t FROM orders ORDER BY id DESC LIMIT 100").all();
+      return json(req, { orders: rows.results || [] });
+    }
+    // 確認收款 → 自動產生密碼並綁定買家
+    if (path === "/api/admin/orders/confirm" && req.method === "POST") {
+      try {
+        const b = await req.json();
+        const id = parseInt(b.id) || 0;
+        const o = await env.DB.prepare("SELECT * FROM orders WHERE id = ?").bind(id).first();
+        if (!o || o.status !== "pending") return json(req, { error: "not_found" }, 404);
+        const now = Math.floor(Date.now() / 1000);
+        const c = genCode();
+        const h = await sha256hex(normalizeCode(c));
+        const cr = await env.DB.prepare(
+          "INSERT INTO codes(code_hash, code_prefix, type, expires_at, max_uses, note, buyer_name, contact, created_at) VALUES(?, ?, ?, 0, 1, ?, ?, ?, ?)")
+          .bind(h, c.slice(0, 4), o.type, "訂單#" + o.id, o.buyer_name, o.contact, now).run();
+        const codeId = cr.meta.last_row_id;
+        await env.DB.prepare("UPDATE orders SET status = 'confirmed', code_id = ? WHERE id = ?").bind(codeId, id).run();
+        return json(req, { ok: true, code: c, link: "https://yiwen.taicalc.com/?code=" + encodeURIComponent(c) });
+      } catch (e) { return json(req, { error: "confirm_failed" }, 500); }
+    }
+    // 退回訂單（末五碼對不上等）
+    if (path === "/api/admin/orders/reject" && req.method === "POST") {
+      try {
+        const b = await req.json();
+        const id = parseInt(b.id) || 0;
+        await env.DB.prepare("UPDATE orders SET status = 'rejected' WHERE id = ? AND status = 'pending'").bind(id).run();
+        return json(req, { ok: true });
+      } catch (e) { return json(req, { error: "reject_failed" }, 500); }
+    }
     // 即將到期清單：3 天內到期的月訂憑證（附買家資料，方便商家提醒續訂）
     if (path === "/api/admin/expiring" && req.method === "GET") {
       if (req.headers.get("x-admin-key") !== env.ADMIN_KEY) return json(req, { error: "forbidden" }, 403);
@@ -594,43 +628,27 @@ export default {
       } catch (e) { return json(req, { error: "revoke_failed" }, 500); }
     }
 
-    /* ===== 建立綠界訂單（2026-10-11 已下線：改走兌換碼制） ===== */
+    /* ===== 轉帳下單（2026-10-11 驗證收款制）：買家填末五碼，商家後台確認後發碼 ===== */
     if (path === "/api/order" && req.method === "POST") {
-      return json(req, { error: "gone", hint: "已改走兌換碼制" }, 410);
-      const uid = await verifySession(env, getCookie(req, "yiwen_sess"));
-      if (!uid) return json(req, { error: "login_required" }, 401);
-      if (!env.ECPAY_MERCHANT_ID) return json(req, { error: "not_configured" }, 503);
-      const { plan } = await req.json();
-      if (plan !== "single" && plan !== "monthly") return json(req, { error: "bad_plan" }, 400);
-      const amount = plan === "single" ? 49 : 149;
-      const oid = tradeNo();
-      await env.DB.prepare("INSERT INTO orders (id, user_id, plan, amount, created_at) VALUES (?, ?, ?, ?, ?)")
-        .bind(oid, uid, plan, amount, Math.floor(Date.now() / 1000)).run();
-      const params = {
-        MerchantID: env.ECPAY_MERCHANT_ID,
-        MerchantTradeNo: oid,
-        MerchantTradeDate: tradeDate(),
-        PaymentType: "aio",
-        TotalAmount: String(amount),
-        TradeDesc: "易問解卦",
-        ItemName: plan === "single" ? "易問單次解卦包(10次)" : "易問月訂無限解卦",
-        ReturnURL: API_HOST + "/api/ecpay/return",
-        OrderResultURL: FRONTEND + "/?paid=1",
-        NeedExtraPaidInfo: "N",
-        EncryptType: "1",
-      };
-      if (plan === "single") {
-        params.ChoosePayment = "Credit";
-      } else {
-        params.ChoosePayment = "Credit";
-        params.PeriodAmount = String(amount);
-        params.PeriodType = "M";
-        params.Frequency = "1";
-        params.ExecTimes = "12";
-        params.PeriodReturnURL = API_HOST + "/api/ecpay/return";
-      }
-      params.CheckMacValue = await ecpayCheckMac(params, env.ECPAY_HASH_KEY, env.ECPAY_HASH_IV);
-      return json(req, { action: "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5", params });
+      try {
+        const b = await req.json();
+        const iph = await ipHash(req);
+        const now = Math.floor(Date.now() / 1000);
+        const cnt = await env.DB.prepare(
+          "SELECT COUNT(*) c FROM orders WHERE ip_hash = ? AND created_at > ?").bind(iph, now - 600).first();
+        if (cnt && cnt.c >= 5) return json(req, { error: "too_many" }, 429);
+        const buyer_name = String(b.buyer_name || "").trim().slice(0, 40);
+        const contact = String(b.contact || "").trim().slice(0, 60);
+        const type = b.type === "subscription" ? "subscription" : "one_time";
+        const last5 = String(b.last5 || "").replace(/\D/g, "").slice(0, 5);
+        if (!buyer_name) return json(req, { error: "need_name" }, 400);
+        if (!contact) return json(req, { error: "need_contact" }, 400);
+        if (last5.length !== 5) return json(req, { error: "bad_last5" }, 400);
+        await env.DB.prepare(
+          "INSERT INTO orders(buyer_name, contact, type, last5, status, ip_hash, created_at) VALUES(?, ?, ?, ?, 'pending', ?, ?)")
+          .bind(buyer_name, contact, type, last5, iph, now).run();
+        return json(req, { ok: true });
+      } catch (e) { return json(req, { error: "order_failed" }, 500); }
     }
 
     /* ===== 綠界回調（server notify） ===== */
