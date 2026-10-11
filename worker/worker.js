@@ -487,7 +487,7 @@ export default {
         const token = b64url(tokBytes);
         const th = await sha256hex(token);
         const usesLeft = code.type === "subscription" ? null : 1;
-        const expAt = code.type === "subscription" ? now + 31 * 86400 : 0;
+        const expAt = code.type === "subscription" ? now + 30 * 86400 : 0;
         const idem = "r" + h.slice(0, 16) + "-" + now + "-" + code.id;
         const rs = await env.DB.batch([
           env.DB.prepare("UPDATE codes SET used_count = used_count + 1 WHERE id = ? AND used_count < max_uses").bind(code.id),
