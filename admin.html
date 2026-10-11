@@ -138,29 +138,51 @@ async function loadList() {
     const d = await api("/api/admin/codes", "GET");
     if (!d.codes.length) { $("listOut").innerHTML = `<div class="sub">還沒發過密碼</div>`; return; }
     $("listOut").innerHTML = `<table><tr><th>前碼</th><th>種類</th><th>狀態</th><th>已用</th><th>買家</th><th></th></tr>` +
-      d.codes.map(c => `<tr><td style="font-family:monospace">${esc(c.code_prefix)}••</td><td>${c.type === "subscription" ? "月訂" : "單次"}</td>` +
+      d.codes.map(c => `<tr id="row-${c.id}" data-buyer="${esc(c.buyer_name)}" data-contact="${esc(c.contact)}" data-note="${esc(c.note)}"><td style="font-family:monospace">${esc(c.code_prefix)}••</td><td>${c.type === "subscription" ? "月訂" : "單次"}</td>` +
         `<td class="${c.status !== "active" ? "revoked" : ""}">${c.status === "active" ? "有效" : "已撤銷"}</td>` +
         `<td>${c.used_count}/${c.max_uses}</td><td>${esc(c.buyer_name) || ""}${c.contact ? "<br>" + esc(c.contact) : ""}${c.note ? "<br><span style='color:#8a7f6d'>" + esc(c.note) + "</span>" : ""}</td>` +
         (c.status === "active"
-          ? `<td style="white-space:nowrap"><button class="mini" onclick="revoke(${c.id})">撤銷</button>` +
-            (c.used_count === 0 ? `<button class="mini" onclick="reassign(${c.id}, '${esc(c.buyer_name)}', '${esc(c.contact)}', '${esc(c.note)}')">轉贈／改資料</button>` : "") + `</td>`
+          ? `<td style="white-space:nowrap"><button class="mini" onclick="revoke(${c.id}, this)">撤銷</button>` +
+            (c.used_count === 0 ? `<button class="mini" onclick="reassign(${c.id})">轉贈／改資料</button>` : "") + `</td>`
           : `<td></td>`) + `</tr>`).join("") + `</table>`;
   } catch (e) { $("listOut").innerHTML = `<div class="sub">${esc(e.message)}</div>`; }
 }
-async function revoke(id) {
-  if (!confirm("確定撤銷這組密碼？\n已經開通的人也會立刻失效。")) return;
+function revoke(id, btn) {
+  if (btn.dataset.armed) {
+    doRevoke(id);
+  } else {
+    btn.dataset.armed = "1";
+    btn.textContent = "確定撤銷？";
+    btn.style.borderColor = "#b03a2e";
+    btn.style.color = "#b03a2e";
+    setTimeout(() => { if (btn.isConnected) { delete btn.dataset.armed; btn.textContent = "撤銷"; btn.style.borderColor = ""; btn.style.color = ""; } }, 5000);
+  }
+}
+async function doRevoke(id) {
   try { await api("/api/admin/codes/revoke", "POST", { id }); loadList(); loadExp(); }
   catch (e) { alert(e.message); }
 }
-async function reassign(id, buyer, contact, note) {
-  const b = prompt("買家姓名（轉贈給誰）", buyer || "");
-  if (b === null) return;
-  const ct = prompt("聯絡方式（LINE ID／電話）", contact || "");
-  if (ct === null) return;
-  const nt = prompt("備註", note || "");
-  if (nt === null) return;
-  try { await api("/api/admin/codes/update", "POST", { id, buyer_name: b, contact: ct, note: nt }); loadList(); }
-  catch (e) { alert(e.message); }
+function reassign(id) {
+  document.querySelectorAll(".edit-row").forEach(e => e.remove());
+  const tr = $("row-" + id);
+  if (!tr) return;
+  const er = document.createElement("tr");
+  er.className = "edit-row";
+  er.innerHTML = `<td colspan="6"><div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;background:#f4efe4;border-radius:8px;padding:10px;">
+      <div><label>買家姓名</label><input id="e-buyer" value="${esc(tr.dataset.buyer)}" maxlength="40" style="width:130px;"></div>
+      <div><label>聯絡方式</label><input id="e-contact" value="${esc(tr.dataset.contact)}" maxlength="60" style="width:150px;"></div>
+      <div><label>備註</label><input id="e-note" value="${esc(tr.dataset.note)}" maxlength="100" style="width:150px;"></div>
+      <div style="display:flex;gap:6px;"><button class="mini" onclick="saveReassign(${id})">儲存</button><button class="mini" onclick="this.closest('tr').remove()">取消</button></div>
+    </div></td>`;
+  tr.after(er);
+  $("e-buyer").focus();
+}
+async function saveReassign(id) {
+  try {
+    await api("/api/admin/codes/update", "POST", {
+      id, buyer_name: $("e-buyer").value, contact: $("e-contact").value, note: $("e-note").value });
+    loadList();
+  } catch (e) { alert(e.message); }
 }
 $("reloadBtn").onclick = loadList;
 $("expBtn").onclick = loadExp;
