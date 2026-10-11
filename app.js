@@ -829,6 +829,17 @@ async function initPush() {
 }
 initPush();
 
+/* 鍵盤彈出時收起導航，避免浮在鍵盤上方 */
+(function () {
+  const nav = document.getElementById("tabbar");
+  if (!nav || !window.visualViewport) return;
+  let maxH = window.visualViewport.height;
+  window.visualViewport.addEventListener("resize", () => {
+    const cur = window.visualViewport.height;
+    if (cur > maxH) maxH = cur;
+    nav.style.transform = (maxH - cur > 140) ? "translateY(110%)" : "";
+  });
+})();
 /* ---------- 底部分類導航 ---------- */
 const TABMAP = {
   ask: ["askCard", "lifeTeaser", "guaCard", "aiCard", "theoryCard"],
