@@ -1,6 +1,6 @@
 // 易問 v2 Worker — AI 解卦＋LINE 登入＋綠界金流＋額度系統
 const MODEL = "@cf/meta/llama-3.3-70b-instruct-fp8-fast";
-const TESTING_UNLIMITED = true; // 測試期：不限制 AI 使用次數；正式收費時改回 false
+const TESTING_UNLIMITED = false; // 2026-10-11 兌換碼試點：關閉無限免費，改走憑證＋匿名每月 3 次
 const DAILY_GUA = [{"n":1,"name":"乾","guaci":"乾：元亨。利貞。","qs":"天行健，君子以自強不息——該出手時就出手。"},{"n":2,"name":"坤","guaci":"坤：元亨。利牝馬之貞。君子有攸往，先迷後得主。利西南得朋，東北喪朋。安貞，吉。","qs":"厚德載物，先守後攻，柔軟是最強的韌性。"},{"n":3,"name":"屯","guaci":"屯：元亨，利貞。勿用有攸往，利建侯。","qs":"種子破土前都在黑暗裡，別急。"},{"n":4,"name":"蒙","guaci":"蒙：亨。匪我求童蒙，童蒙求我。初筮告，再三瀆，瀆則不告。利貞。","qs":"不懂就問，是最快的路。"},{"n":5,"name":"需","guaci":"需：有孚，光亨。貞吉，利涉大川。","qs":"該等的時候等，本身就是實力。"},{"n":6,"name":"訟","guaci":"訟：有孚，窒，惕，中吉，終凶。利見大人，不利涉大川。","qs":"贏了道理輸了關係，不划算。"},{"n":7,"name":"師","guaci":"師：貞丈人吉，无咎。","qs":"帶人先帶心，號令要清楚。"},{"n":8,"name":"比","guaci":"比：吉。原筮元永貞，无咎。不寧方來，後夫凶。","qs":"選對夥伴，事半功倍。"},{"n":9,"name":"小畜","guaci":"小畜：亨。密雲不雨，自我西郊。","qs":"小步前進，別想一次到位。"},{"n":10,"name":"履","guaci":"履虎尾，不咥人，亨。","qs":"禮數做足，貴人自來。"},{"n":11,"name":"泰","guaci":"泰：小往大來，吉亨。","qs":"好運來時，要敢接。"},{"n":12,"name":"否","guaci":"否之匪人，不利君子貞，大往小來。","qs":"低潮時不亂動，就是贏。"},{"n":13,"name":"同人","guaci":"同人于野，亨。利涉大川，利君子貞。","qs":"同頻的人會互相照亮。"},{"n":14,"name":"大有","guaci":"大有：元亨。","qs":"得到越多，越要低調。"},{"n":15,"name":"謙","guaci":"謙：亨，君子有終。","qs":"真本事不需要張揚。"},{"n":16,"name":"豫","guaci":"豫：利建侯行師。","qs":"開心的時候，想想風險。"},{"n":17,"name":"隨","guaci":"隨：元亨。利貞。无咎。","qs":"順勢而為，比逆流划船輕鬆。"},{"n":18,"name":"蠱","guaci":"蠱：元亨。利涉大川。先甲三日，後甲三日。","qs":"該修的現在修，別拖。"},{"n":19,"name":"臨","guaci":"臨：元亨。利貞。至于八月有凶。","qs":"位置越高，姿態越低。"},{"n":20,"name":"觀","guaci":"觀：盥而不薦，有孚顒若。","qs":"先看清楚，再出手。"},{"n":21,"name":"噬嗑","guaci":"噬嗑：亨。利用獄。","qs":"該斷就斷，拖只會更痛。"},{"n":22,"name":"賁","guaci":"賁：亨。小利有攸往。","qs":"門面顧好，是對人的尊重。"},{"n":23,"name":"剝","guaci":"剝：不利。有攸往。","qs":"逆風時，先保本。"},{"n":24,"name":"復","guaci":"復：亨。出入无疾，朋來无咎。反復其道，七日來復，利有攸往。","qs":"跌倒了，爬起來就是新的開始。"},{"n":25,"name":"无妄","guaci":"无妄：元亨。利貞。其匪正有眚，不利有攸往。","qs":"別算計太多，真誠最省力。"},{"n":26,"name":"大畜","guaci":"大畜：利貞，不家食吉，利涉大川。","qs":"存夠了本事，就等風來。"},{"n":27,"name":"頤","guaci":"頤：貞吉。觀頤，自求口實。","qs":"照顧好身體，才有本錢談未來。"},{"n":28,"name":"大過","guaci":"大過：棟橈，利有攸往，亨。","qs":"非常時期，別用平常心態。"},{"n":29,"name":"坎","guaci":"習坎：有孚，維心亨。行有尚。","qs":"關關難過，關關過。"},{"n":30,"name":"離","guaci":"離：利貞。亨。畜牝牛，吉。","qs":"發光之前，先找對可以依靠的。"},{"n":31,"name":"咸","guaci":"咸：亨。利貞。取女吉。","qs":"真誠相待，感應自然來。"},{"n":32,"name":"恒","guaci":"恆：亨，无咎。利貞，利有攸往。","qs":"每天做一點，勝過一次爆發。"},{"n":33,"name":"遯","guaci":"遯：亨。小利貞。","qs":"退一步不是輸，是為了走更遠。"},{"n":34,"name":"大壯","guaci":"大壯：利貞。","qs":"強的時候，更要守規矩。"},{"n":35,"name":"晉","guaci":"晉：康侯用錫馬蕃庶，晝日三接。","qs":"順風時，把帆張滿。"},{"n":36,"name":"明夷","guaci":"明夷：利艱貞。","qs":"環境不對時，先保護自己。"},{"n":37,"name":"家人","guaci":"家人：利女貞。","qs":"把家顧好，是最大的底氣。"},{"n":38,"name":"睽","guaci":"睽：小事吉。","qs":"不合沒關係，各走各的也行。"},{"n":39,"name":"蹇","guaci":"蹇：利西南，不利東北；利見大人，貞吉。","qs":"卡住的時候，停下來想比硬闖好。"},{"n":40,"name":"解","guaci":"解：利西南，无所往，其來復吉。有攸往，夙吉。","qs":"難關過了，就別再回頭看。"},{"n":41,"name":"損","guaci":"損：有孚，元吉。无咎，可貞，利有攸往。曷之用？二簋可用享。","qs":"有捨才有得。"},{"n":42,"name":"益","guaci":"益：利有攸往。利涉大川。","qs":"幫人，就是幫未來的自己。"},{"n":43,"name":"夬","guaci":"夬：揚于王庭，孚號，有厲，告自邑，不利即戎，利有攸往。","qs":"該切割的，漂亮地切割。"},{"n":44,"name":"姤","guaci":"姤：女壯，勿用取女。","qs":"好的開始要珍惜，壞的苗頭要早斷。"},{"n":45,"name":"萃","guaci":"萃：王假有廟，利見大人，亨。利貞。用大牲吉，利有攸往。","qs":"把對的人聚在一起，事就成了一半。"},{"n":46,"name":"升","guaci":"升：元亨，用見大人，勿恤，南征吉。","qs":"爬樓梯比坐電梯踏實。"},{"n":47,"name":"困","guaci":"困：亨，貞大人吉，无咎，有言不信。","qs":"被困住時，守住心就不算輸。"},{"n":48,"name":"井","guaci":"井：改邑不改井，无喪无得，往來井井。汔至亦未繘井。羸其瓶，凶。","qs":"做那口人人需要的井。"},{"n":49,"name":"革","guaci":"革：已日乃孚，元亨。利貞。悔亡。","qs":"該換跑道時，別留戀舊地圖。"},{"n":50,"name":"鼎","guaci":"鼎：元吉，亨。","qs":"能扛鼎的人，先穩住自己。"},{"n":51,"name":"震","guaci":"震：亨。震來虩虩，笑言啞啞。震驚百里，不喪匕鬯。","qs":"被嚇醒之後，記得往前走。"},{"n":52,"name":"艮","guaci":"艮：艮其背，不獲其身，行其庭，不見其人，无咎。","qs":"懂得停下來，也是一種能力。"},{"n":53,"name":"漸","guaci":"漸：女歸吉，利貞。","qs":"慢就是快，穩就是贏。"},{"n":54,"name":"歸妹","guaci":"歸妹：征凶，无攸利。","qs":"位置不對時，先把本分做好。"},{"n":55,"name":"豐","guaci":"豐：亨。王假之，勿憂，宜日中。","qs":"最滿的時候，記得留白。"},{"n":56,"name":"旅","guaci":"旅：小亨，旅貞吉。","qs":"出門在外，低調平安是福。"},{"n":57,"name":"巽","guaci":"巽：小亨。利有攸往。利見大人。","qs":"柔軟的身段，走得進人心。"},{"n":58,"name":"兌","guaci":"兌：亨。利貞。","qs":"讓人開心的人，運氣不會差。"},{"n":59,"name":"渙","guaci":"渙：亨，王假有廟，利涉大川，利貞。","qs":"散了，就一個一個找回來。"},{"n":60,"name":"節","guaci":"節：亨。苦節不可貞。","qs":"有節制的人，走得遠。"},{"n":61,"name":"中孚","guaci":"中孚：豚魚吉，利涉大川，利貞。","qs":"誠信是最硬的通貨。"},{"n":62,"name":"小過","guaci":"小過：亨。利貞。可小事，不可大事。飛鳥遺之音，不宜上宜下，大吉。","qs":"小事做到位，大事自然來。"},{"n":63,"name":"既濟","guaci":"既濟：亨小。利貞。初吉終亂。","qs":"成功之後，更要小心。"},{"n":64,"name":"未濟","guaci":"未濟：亨。小狐汔濟，濡其尾，无攸利。","qs":"故事還沒完，好戲在後頭。"}];
 const FRONTEND = "https://yiwen.taicalc.com";
 const API_HOST = "https://yiwen-api.taicalc.com";
@@ -36,7 +36,7 @@ function cors(req) {
   const o = req.headers.get("Origin") || "";
   const h = {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
     "Content-Type": "application/json; charset=utf-8",
   };
   if (o === FRONTEND) {
@@ -126,6 +126,102 @@ async function consumeQuota(env, uid) {
     return { ok: true, plan: "credits", left: e.credits - 1 };
   }
   return { ok: false, reason: "quota_exhausted" };
+}
+
+/* ---------- 兌換碼系統（2026-10-11 Phase 0 試點） ---------- */
+async function sha256hex(s) {
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return [...new Uint8Array(d)].map(b => b.toString(16).padStart(2, "0")).join("");
+}
+// 密碼正規化：大寫＋去空格/連字號；字元集排除 0/O/1/I/L，輸入含這些字一律視為抄錯
+function normalizeCode(s) {
+  return String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+}
+const CODE_CHARS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ"; // 排除 0/O/1/I/L
+function genCode() {
+  const r = crypto.getRandomValues(new Uint8Array(12));
+  let s = "";
+  for (let i = 0; i < 12; i++) s += CODE_CHARS[r[i] % CODE_CHARS.length];
+  return s.slice(0, 4) + "-" + s.slice(4, 8) + "-" + s.slice(8, 12);
+}
+async function ipHash(req) {
+  const fwd = req.headers.get("X-Forwarded-For") || "";
+  const ip = req.headers.get("CF-Connecting-IP") || fwd.split(",")[0].trim() || "unknown";
+  return (await sha256hex("yiwen|" + ip)).slice(0, 32);
+}
+// 憑證：cookie yiwen_cred 或 Authorization: Bearer；token 本體是 256-bit 隨機，庫裡只存 hash
+async function getCred(env, req) {
+  let tok = getCookie(req, "yiwen_cred");
+  if (!tok) {
+    const ah = req.headers.get("Authorization") || "";
+    if (ah.startsWith("Bearer ")) tok = ah.slice(7).trim();
+  }
+  if (!tok) return null;
+  const th = await sha256hex(tok);
+  const c = await env.DB.prepare("SELECT * FROM credentials WHERE token_hash = ?").bind(th).first();
+  if (!c || c.revoked) return null;
+  if (c.expires_at && c.expires_at < Date.now() / 1000) return null;
+  return c;
+}
+// 統一入口：兌換碼憑證 → 舊登入額度（ grandfather ）→ 匿名每月 3 次免費
+async function checkAccess(env, req) {
+  const iph = await ipHash(req);
+  const cred = await getCred(env, req);
+  if (cred) {
+    if (cred.type === "subscription") return { ok: true, kind: "cred", cred, iph };
+    if (cred.uses_left > 0) return { ok: true, kind: "cred", cred, iph };
+    return { ok: false, reason: "quota_exhausted", iph };
+  }
+  const uid = await verifySession(env, getCookie(req, "yiwen_sess"));
+  if (uid) {
+    const q = await consumeQuota(env, uid);
+    if (q.ok) return { ok: true, kind: "legacy", iph };
+    return { ok: false, reason: "quota_exhausted", iph };
+  }
+  const m = monthStr();
+  const aq = await env.DB.prepare("SELECT used FROM anon_quota WHERE ip_hash = ? AND month = ?").bind(iph, m).first();
+  const used = aq ? aq.used : 0;
+  if (used >= 3) return { ok: false, reason: "quota_exhausted", iph };
+  return { ok: true, kind: "free", iph, month: m, freeLeft: 2 - used };
+}
+// AI 成功後扣額度（失敗不扣）
+async function afterAI(env, acc) {
+  const now = Math.floor(Date.now() / 1000);
+  if (acc.kind === "cred" && acc.cred.type === "one_time") {
+    await env.DB.prepare("UPDATE credentials SET uses_left = uses_left - 1, last_used_at = ? WHERE id = ? AND uses_left > 0")
+      .bind(now, acc.cred.id).run();
+  } else if (acc.kind === "free") {
+    await env.DB.prepare("INSERT INTO anon_quota(ip_hash, month, used) VALUES(?, ?, 1) ON CONFLICT(ip_hash, month) DO UPDATE SET used = used + 1")
+      .bind(acc.iph, acc.month).run();
+  }
+  // legacy 在 checkAccess 內已扣（consumeQuota）
+}
+/* ---------- AI 防爆（D1 計次：ai_usage／ai_global 表 2026-10-11 接上） ---------- */
+function twDay() {
+  const d = new Date(Date.now() + 8 * 3600 * 1000);
+  const p = n => String(n).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
+}
+async function aiGuard(env, iph) {
+  const day = twDay();
+  const g = await env.DB.prepare("SELECT n FROM ai_global WHERE day = ?").bind(day).first();
+  if (g && g.n >= 2000) return false;
+  const u = await env.DB.prepare("SELECT n FROM ai_usage WHERE day = ? AND ip = ?").bind(day, iph).first();
+  if (u && u.n >= 60) return false;
+  return true;
+}
+async function aiGuardHit(env, iph) {
+  const day = twDay();
+  await env.DB.batch([
+    env.DB.prepare("INSERT INTO ai_global(day, n) VALUES(?, 1) ON CONFLICT(day) DO UPDATE SET n = n + 1").bind(day),
+    env.DB.prepare("INSERT INTO ai_usage(day, ip, n) VALUES(?, ?, 1) ON CONFLICT(day, ip) DO UPDATE SET n = n + 1").bind(day, iph),
+  ]);
+  if (Math.random() < 0.05) { // 偶爾清 3 天前舊資料
+    try {
+      await env.DB.prepare("DELETE FROM ai_usage WHERE day < date(?, '-3 days')").bind(day).run();
+      await env.DB.prepare("DELETE FROM ai_global WHERE day < date(?, '-3 days')").bind(day).run();
+    } catch {}
+  }
 }
 
 /* ---------- 綠界 CheckMacValue ---------- */
@@ -355,8 +451,117 @@ export default {
       });
     }
 
-    /* ===== 建立綠界訂單 ===== */
+    /* ===== 兌換碼：驗證＋核銷＋發憑證（2026-10-11 Phase 0） ===== */
+    if (path === "/redeem" && req.method === "POST") {
+      try {
+        const b = await req.json();
+        const iph = await ipHash(req);
+        const now = Math.floor(Date.now() / 1000);
+        // 驗碼限流：同 IP 10 分鐘內超過 30 次嘗試 → 429
+        const att = await env.DB.prepare(
+          "SELECT COUNT(*) c FROM redemption_events WHERE ip_hash = ? AND created_at > ? AND event_type = 'redeem_attempt'")
+          .bind(iph, now - 600).first();
+        if (att && att.c >= 30) return json(req, { error: "too_many" }, 429);
+        const logFail = async (reason) => {
+          try {
+            await env.DB.prepare(
+              "INSERT INTO redemption_events(code_id, event_type, result, ip_hash, created_at) VALUES(NULL, 'redeem_attempt', ?, ?, ?)")
+              .bind(reason, iph, now).run();
+          } catch {}
+        };
+        const norm = normalizeCode(b.code);
+        if (!norm) { await logFail("empty"); return json(req, { error: "invalid" }, 400); }
+        if (/[0O1IL]/.test(norm)) { // 密碼字元集沒有這些字，直接給抄寫提示，不查庫
+          await logFail("confusable");
+          return json(req, { error: "invalid_hint", hint: "密碼不會包含 0、O、1、I、L，請檢查是否抄錯" }, 400);
+        }
+        if (norm.length !== 12) { await logFail("bad_length"); return json(req, { error: "invalid" }, 400); }
+        const h = await sha256hex(norm);
+        const code = await env.DB.prepare("SELECT * FROM codes WHERE code_hash = ?").bind(h).first();
+        // 失敗一律模糊回應，不區分不存在／已用／過期／撤銷
+        if (!code || code.status !== "active" || (code.expires_at && code.expires_at < now) || code.used_count >= code.max_uses) {
+          await logFail(!code ? "not_found" : "invalid_state");
+          return json(req, { error: "invalid" }, 400);
+        }
+        const tokBytes = crypto.getRandomValues(new Uint8Array(32));
+        const token = b64url(tokBytes);
+        const th = await sha256hex(token);
+        const usesLeft = code.type === "subscription" ? null : 1;
+        const expAt = code.type === "subscription" ? now + 31 * 86400 : 0;
+        const idem = "r" + h.slice(0, 16) + "-" + now + "-" + code.id;
+        const rs = await env.DB.batch([
+          env.DB.prepare("UPDATE codes SET used_count = used_count + 1 WHERE id = ? AND used_count < max_uses").bind(code.id),
+          env.DB.prepare("INSERT INTO redemption_events(code_id, event_type, result, idempotency_key, ip_hash, created_at) VALUES(?, 'redeem', 'ok', ?, ?, ?)")
+            .bind(code.id, idem, iph, now),
+          env.DB.prepare("INSERT INTO credentials(code_id, token_hash, type, uses_left, expires_at, created_at) VALUES(?, ?, ?, ?, ?, ?)")
+            .bind(code.id, th, code.type, usesLeft, expAt, now),
+        ]);
+        if (!rs[0].meta.changes) { await logFail("race_used_up"); return json(req, { error: "invalid" }, 400); }
+        const headers = { ...cors(req),
+          "Set-Cookie": `yiwen_cred=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=2592000` };
+        return new Response(JSON.stringify({ ok: true, type: code.type, uses_left: usesLeft, expires_at: expAt, token }),
+          { headers });
+      } catch (e) { return json(req, { error: "redeem_failed" }, 500); }
+    }
+
+    /* ===== 憑證狀態（前端顯示用） ===== */
+    if (path === "/api/cred" && req.method === "GET") {
+      const cred = await getCred(env, req);
+      const iph = await ipHash(req);
+      const m = monthStr();
+      const aq = await env.DB.prepare("SELECT used FROM anon_quota WHERE ip_hash = ? AND month = ?").bind(iph, m).first();
+      return json(req, {
+        cred: cred ? { type: cred.type, uses_left: cred.uses_left, expires_at: cred.expires_at } : null,
+        freeLeft: Math.max(0, 3 - (aq ? aq.used : 0)),
+      });
+    }
+
+    /* ===== 發碼後台（x-admin-key，2026-10-11 Phase 0） ===== */
+    const needAdmin = (path === "/api/admin/codes" || path === "/api/admin/codes/revoke") && req.method === "POST";
+    if (needAdmin && req.headers.get("x-admin-key") !== env.ADMIN_KEY) {
+      return json(req, { error: "forbidden" }, 403);
+    }
+    if (path === "/api/admin/codes" && req.method === "POST") {
+      try {
+        const b = await req.json();
+        const type = b.type === "subscription" ? "subscription" : "one_time";
+        const count = Math.min(Math.max(parseInt(b.count) || 1, 1), 100);
+        const days = parseInt(b.days) || 0;
+        const note = String(b.note || "").slice(0, 100);
+        const now = Math.floor(Date.now() / 1000);
+        const out = [];
+        const stmts = [];
+        for (let i = 0; i < count; i++) {
+          const c = genCode();
+          const h = await sha256hex(normalizeCode(c));
+          out.push(c);
+          stmts.push(env.DB.prepare(
+            "INSERT INTO codes(code_hash, code_prefix, type, expires_at, max_uses, note, created_at) VALUES(?, ?, ?, ?, 1, ?, ?)")
+            .bind(h, c.slice(0, 4), type, days ? now + days * 86400 : 0, note, now));
+        }
+        await env.DB.batch(stmts);
+        return json(req, { ok: true, type, codes: out, warning: "明碼只顯示一次，請立即複製保存" });
+      } catch (e) { return json(req, { error: "gen_failed" }, 500); }
+    }
+    if (path === "/api/admin/codes" && req.method === "GET") {
+      if (req.headers.get("x-admin-key") !== env.ADMIN_KEY) return json(req, { error: "forbidden" }, 403);
+      const rows = await env.DB.prepare(
+        "SELECT id, code_prefix, type, status, expires_at, max_uses, used_count, note, created_at FROM codes ORDER BY id DESC LIMIT 200").all();
+      return json(req, { codes: rows.results || [] });
+    }
+    if (path === "/api/admin/codes/revoke" && req.method === "POST") {
+      try {
+        const b = await req.json();
+        await env.DB.prepare("UPDATE codes SET status = 'revoked' WHERE id = ?").bind(parseInt(b.id) || 0).run();
+        const th = b.token_hash ? String(b.token_hash) : null;
+        if (th) await env.DB.prepare("UPDATE credentials SET revoked = 1 WHERE token_hash = ?").bind(th).run();
+        return json(req, { ok: true });
+      } catch (e) { return json(req, { error: "revoke_failed" }, 500); }
+    }
+
+    /* ===== 建立綠界訂單（2026-10-11 已下線：改走兌換碼制） ===== */
     if (path === "/api/order" && req.method === "POST") {
+      return json(req, { error: "gone", hint: "已改走兌換碼制" }, 410);
       const uid = await verifySession(env, getCookie(req, "yiwen_sess"));
       if (!uid) return json(req, { error: "login_required" }, 401);
       if (!env.ECPAY_MERCHANT_ID) return json(req, { error: "not_configured" }, 503);
@@ -422,6 +627,9 @@ export default {
     /* ===== 單爻求籤短解 ===== */
     if (path === "/divine/yao" && req.method === "POST") {
       try {
+        const acc = await checkAccess(env, req);
+        if (!acc.ok) return json(req, { error: acc.reason }, 402);
+        if (!(await aiGuard(env, acc.iph))) return json(req, { error: "busy" }, 429);
         const b = await req.json();
         const messages = [
           { role: "system", content: "你是「易問」的解籤人，精通《周易》爻辭。你用台灣繁體中文、白話但典雅的語氣，針對抽到的爻給 2-4 句籤語短解：先點出這一爻在說什麼處境，再給一句今天可用的提醒。引用爻辭時必須與 user 提供的原文一字不差，絕對不准杜撰或改寫爻辭。不可鐵口直斷吉凶禍福，不可給醫療、法律、投資買賣點等專業建議。只輸出短解文字，不要 JSON，不要標題。全文一律繁體中文（台灣用法），嚴禁簡體字。" },
@@ -432,6 +640,8 @@ export default {
           messages.push({ role: "user", content: "請將上述內容全部改寫為繁體中文（台灣用法），嚴禁簡體字。" });
           txt = await callAI(env, messages);
         }
+        await afterAI(env, acc);
+        await aiGuardHit(env, acc.iph);
         return json(req, { answer: txt.slice(0, 600) });
       } catch (e) { return json(req, { error: "divine_failed" }, 500); }
     }
@@ -440,11 +650,10 @@ export default {
     if (path === "/divine/follow" && req.method === "POST") {
       try {
         const b = await req.json();
-        const uid = await verifySession(env, getCookie(req, "yiwen_sess"));
-        if (uid && !TESTING_UNLIMITED) {
-          const q = await consumeQuota(env, uid);
-          if (!q.ok) return json(req, { error: "quota_exhausted" }, 402);
-        }
+        // 兌換碼憑證 → 舊登入額度 → 匿名每月 3 次免費
+        const acc = await checkAccess(env, req);
+        if (!acc.ok) return json(req, { error: acc.reason }, 402);
+        if (!(await aiGuard(env, acc.iph))) return json(req, { error: "busy" }, 429);
         // 卦名-卦序校驗：對不上就拒絕，不解錯卦
         if (guaInvalid(b.benGua) || guaInvalid(b.zhiGua)) return json(req, { error: "gua_mismatch" }, 400);
         const hist = (b.history || []).slice(-6).map(h => (h.role === "user" ? "問" : "答") + "：" + h.text).join("\n");
@@ -463,6 +672,8 @@ export default {
           messages.push({ role: "user", content: "請將上述內容全部改寫為繁體中文（台灣用法），嚴禁簡體字。" });
           txt = await callAI(env, messages);
         }
+        await afterAI(env, acc);
+        await aiGuardHit(env, acc.iph);
         return json(req, { answer: txt.slice(0, 1500) });
       } catch (e) {
         return json(req, { error: "divine_failed" }, 500);
@@ -491,12 +702,10 @@ export default {
     if (path === "/divine" && req.method === "POST") {
       try {
         const b = await req.json();
-        // 登入用戶走 server 端額度
-        const uid = await verifySession(env, getCookie(req, "yiwen_sess"));
-        if (uid && !TESTING_UNLIMITED) {
-          const q = await consumeQuota(env, uid);
-          if (!q.ok) return json(req, { error: "quota_exhausted" }, 402);
-        }
+        // 兌換碼憑證 → 舊登入額度 → 匿名每月 3 次免費
+        const acc = await checkAccess(env, req);
+        if (!acc.ok) return json(req, { error: acc.reason }, 402);
+        if (!(await aiGuard(env, acc.iph))) return json(req, { error: "busy" }, 429);
         // 卦名-卦序校驗：對不上就拒絕，不解錯卦
         if (guaInvalid(b.benGua) || guaInvalid(b.zhiGua)) return json(req, { error: "gua_mismatch" }, 400);
         const moving = (b.moving || []).map(m =>
@@ -530,6 +739,8 @@ export default {
           out = norm(JSON.parse(txt));
           if (!out.xiankuang) throw new Error("ai_empty_response");
         }
+        await afterAI(env, acc);
+        await aiGuardHit(env, acc.iph);
         return json(req, out);
       } catch (e) {
         return json(req, { error: "divine_failed", detail: String(e && e.message || e).slice(0, 200) }, 500);

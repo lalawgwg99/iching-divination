@@ -1,6 +1,6 @@
 /* 易問 app.js */
 const API_BASE = "https://yiwen-api.taicalc.com";
-const TESTING_UNLIMITED = true; // 測試期：AI 解卦＋追問不限次數，不需登入
+const TESTING_UNLIMITED = false; // 2026-10-11 兌換碼試點：關閉無限免費
 let GUA = [], SYM = {}, BH = {};
 let cur = null;
 let ME = null;
@@ -15,12 +15,17 @@ async function loadMe() {
 function renderAuth() {
   const box = $("authBox");
   if (!ME || !ME.loggedIn) {
+    // 2026-10-11 兌換碼制：登入入口改為密碼開通入口
     box.innerHTML = `<div class="auth-menu">
-      <button class="auth-btn" id="authToggle">登入</button>
+      <button class="auth-btn" id="authToggle">輸入密碼</button>
       <div class="auth-panel" id="authPanel">
-        <div class="hint">登入後占問記錄跨裝置同步。<br>測試期間不用登入也能無限使用。</div>
-        <button class="line-btn" onclick="location.href=API_BASE+'/auth/line'">用 LINE 登入</button>
-        <button class="google-btn" onclick="location.href=API_BASE+'/auth/google'">用 Google 登入</button>
+        <div class="hint">有購買密碼的人，在這裡輸入開通。<br>沒密碼也能每月免費問 3 次。</div>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <input id="redeemInput" placeholder="XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false"
+            style="flex:1;min-width:0;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;letter-spacing:.08em;">
+          <button id="redeemBtn" class="btn" style="margin:0;width:auto;padding:10px 18px;letter-spacing:.1em;">開通</button>
+        </div>
+        <div id="redeemMsg" class="hint" style="margin-top:8px;min-height:1.2em;"></div>
       </div></div>`;
   } else {
     const planLbl = ME.plan === "monthly" ? "月訂會員" : "免費會員";
@@ -42,33 +47,51 @@ function renderAuth() {
       </div></div>`;
   }
   $("authToggle").onclick = e => { e.stopPropagation(); $("authPanel").classList.toggle("open"); };
+  const rb = $("redeemBtn");
+  if (rb) { rb.onclick = doRedeem; $("redeemInput").addEventListener("keydown", e => { if (e.key === "Enter") doRedeem(); }); }
+}
+/* ---------- 兌換碼（2026-10-11 Phase 0） ---------- */
+let CRED = null;   // {type, uses_left, expires_at} | null
+let FREE_LEFT = 3;
+async function loadCred() {
+  try {
+    const r = await fetch(API_BASE + "/api/cred", { credentials: "include" });
+    const d = await r.json();
+    CRED = d.cred; FREE_LEFT = d.freeLeft;
+  } catch (e) { CRED = null; }
+  renderQuota();
+}
+async function doRedeem() {
+  const inp = $("redeemInput"), msg = $("redeemMsg");
+  const code = inp.value.trim();
+  if (!code) { msg.textContent = "請輸入密碼"; return; }
+  msg.textContent = "驗證中…";
+  try {
+    const r = await fetch(API_BASE + "/redeem", { method: "POST", credentials: "include",
+      headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+    const d = await r.json();
+    if (d.ok) {
+      try { localStorage.setItem("yiwen_cred_token", d.token); } catch (e) {}
+      msg.textContent = "";
+      inp.value = "";
+      await loadCred();
+      toast(d.type === "subscription" ? "開通成功！月訂會員 30 天無限解卦" : "開通成功！可解卦 1 次，用完即失效");
+      return;
+    }
+    msg.textContent = d.error === "invalid_hint" ? d.hint
+      : d.error === "too_many" ? "嘗試太多次，請 10 分鐘後再試"
+      : "密碼無效、已用過或已過期，請檢查";
+  } catch (e) { msg.textContent = "連線失敗，請再試一次"; }
+}
+function openRedeem() {
+  const p = $("authPanel");
+  if (p) { p.classList.add("open"); const i = $("redeemInput"); if (i) i.focus(); }
+  else { const t = $("authToggle"); if (t) t.click(); }
 }
 function plansHTML() {
-  return `<div class="plans">
-    <div class="plan-card"><div class="pn">單次包</div><div class="pp">NT$49</div>
-      <div class="pd">10 次 AI 解卦<br>用完再買就好</div>
-      <button onclick="buyPlan('single')">購買</button></div>
-    <div class="plan-card hot"><span class="tag">划算</span><div class="pn">月訂無限</div>
-      <div class="pp">NT$149<small>/月</small></div>
-      <div class="pd">每天問到飽<br>隨時可取消</div>
-      <button onclick="buyPlan('monthly')">訂閱</button></div>
-  </div>`;
-}
-async function buyPlan(plan) {
-  try {
-    const r = await fetch(API_BASE + "/api/order", { method: "POST",
-      credentials: "include", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan }) });
-    const d = await r.json();
-    if (!r.ok) { alert(d.error === "login_required" ? "請先用 LINE 登入" : "目前無法建立訂單，請稍後再試"); return; }
-    const f = document.createElement("form");
-    f.method = "POST"; f.action = d.action;
-    for (const k in d.params) {
-      const i = document.createElement("input");
-      i.type = "hidden"; i.name = k; i.value = d.params[k]; f.appendChild(i);
-    }
-    document.body.appendChild(f); f.submit();
-  } catch (e) { alert("連線失敗，請稍後再試"); }
+  // 2026-10-11 兌換碼制：綠界購買改為密碼開通引導
+  return `<div class="plans"><div class="hint" style="text-align:center;padding:12px 0;">
+    有密碼的人請點右上「輸入密碼」開通；<br>想購買單次問事（NT$49）或月訂（NT$149），請私訊我們。</div></div>`;
 }
 function toast(msg) {
   const el = document.createElement("div");
@@ -340,14 +363,23 @@ q.n++; localStorage.setItem(quotaKey(), JSON.stringify(q)); renderQuota();
 }
 function renderQuota() {
 if (ME && ME.loggedIn) { renderQuotaMember(); return; }
-if (TESTING_UNLIMITED) { $("quotaBox").innerHTML = `測試期間・AI 解卦<b style="font-size:1.2rem;">無限</b>使用，不用登入，盡量問`; return; }
-const n = quotaLeft();
+// 2026-10-11 兌換碼制：憑證狀態走 /api/cred（CRED／FREE_LEFT 由 loadCred 更新）
+if (CRED && CRED.type === "subscription") {
+  $("quotaBox").innerHTML = `月訂會員・無限解卦 <span style="color:var(--ink2);font-size:.85rem;">有效期至 ${new Date(CRED.expires_at * 1000).toLocaleDateString("zh-TW")}</span>`;
+  return;
+}
+if (CRED && CRED.type === "one_time" && CRED.uses_left > 0) {
+  $("quotaBox").innerHTML = `密碼已開通・本次可解卦 <b style="font-size:1.5rem;">1</b> 次`;
+  return;
+}
+const n = FREE_LEFT;
 $("quotaBox").innerHTML = n > 0
-? `這個月還能請 AI 解卦 <b style="font-size:1.5rem;">${n}</b> 次`
-: `本月免費額度已用完。付費無限解卦即將開放，<b>留下 Email 可第一時間收到通知</b>。<div style="margin-top:10px;display:flex;gap:8px;"><input id="waitEmail" placeholder="your@email.com" style="flex:1;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;"><button id="waitBtn" class="btn" style="margin:0;width:auto;padding:10px 18px;letter-spacing:.1em;text-indent:0;">通知我</button></div>`;
+? `這個月還能免費請 AI 解卦 <b style="font-size:1.5rem;">${n}</b> 次 <button class="btn ghost" style="margin:0 0 0 8px;width:auto;padding:8px 14px;" onclick="openRedeem()">有密碼？輸入開通</button>`
+: `本月免費額度已用完。<button class="btn ghost" style="margin:0 0 0 8px;width:auto;padding:8px 14px;" onclick="openRedeem()">輸入密碼開通</button>`;
+}
 function renderQuotaMember() {
+  // 2026-10-11：登入制已退役，僅 grandfather 舊會話；新用戶走兌換碼
   const box = $("quotaBox");
-  if (typeof TESTING_UNLIMITED !== "undefined" && TESTING_UNLIMITED) { box.innerHTML = `測試期間・AI 解卦<b style="font-size:1.2rem;">無限</b>使用，盡量問`; return; }
   if (ME.plan === "monthly") {
     box.innerHTML = `月訂會員・無限解卦 <span style="color:var(--ink2);font-size:.85rem;">有效期至 ${new Date(ME.expiresAt * 1000).toLocaleDateString("zh-TW")}</span>`;
     return;
@@ -360,15 +392,6 @@ function renderQuotaMember() {
     return;
   }
   box.innerHTML = parts.join("・");
-}
-const wb = $("waitBtn");
-if (wb) wb.onclick = () => {
-const em = $("waitEmail").value.trim();
-if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(em)) { alert("Email 格式不對喔"); return;}
-const l = JSON.parse(localStorage.getItem("yiwen_waitlist") || "[]"); l.push({ em, at: Date.now()});
-localStorage.setItem("yiwen_waitlist", JSON.stringify(l));
-$("quotaBox").innerHTML = "已收到！開放時第一時間通知你。";
-};
 }
 
 async function goAI() {
@@ -424,6 +447,7 @@ if (!r.ok) throw new Error("服務暫時忙線中（" + r.status + "）");
 const d = await r.json();
 if (!d.xiankuang) throw new Error("解卦內容空白，請再試一次");
 if (ME && ME.loggedIn) { loadMe(); }
+loadCred();
 resetFollow();
 const blocks = [["現況", d.xiankuang, "xiankuang"], ["變數", d.bianhua, "bianhua"], ["建議", d.jianyi, "jianyi"], ["提醒", d.tixing, "tixing"]];
 function sanzhiHTML(sz) {
@@ -612,7 +636,8 @@ btn.disabled = false; return;
 if (!r.ok) throw new Error("busy");
 const d = await r.json();
 followHist.push({ role: "user", text: q }, { role: "ai", text: d.answer });
-if (logged) loadMe(); else useQuota();
+if (logged) loadMe();
+loadCred();
 renderFollow();
 } catch (e) {
 $("followList").innerHTML += `<div class="f-a">服務暫時忙線中，請稍後再試。</div>`;
@@ -911,10 +936,12 @@ $("qianBtn").addEventListener("click", async () => {
   $("qianAi").innerHTML = `<div class="loading">解籤中…</div>`;
   rs.scrollIntoView({ behavior: "smooth", block: "nearest" });
   try {
-    const r = await fetch(API_BASE + "/divine/yao", { method: "POST",
+    const r = await fetch(API_BASE + "/divine/yao", { method: "POST", credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ guaN: g.n, guaName: g.name, yaoLabel: yao.label, yaoText: yao.text }) });
+    if (r.status === 402) { $("qianAi").innerHTML = `免費額度用完了，<br><button class="btn ghost" style="margin:8px auto 0;width:auto;padding:8px 14px;" onclick="openRedeem()">輸入密碼開通</button>`; btn.disabled = false; btn.textContent = "再求一籤"; return; }
     const d = await r.json();
+    loadCred();
     $("qianAi").textContent = d.answer || "籤語整理中，請稍後再試";
   } catch (e) { $("qianAi").textContent = "解籤失敗，請稍後再試"; }
   btn.disabled = false; btn.textContent = "再求一籤";
@@ -1496,4 +1523,5 @@ window.scrollTo({ top: 0, behavior: "smooth" });
 setTimeout(() => { try { $("q").focus({ preventScroll: true }); } catch (e) { $("q").focus(); } }, 650);
 });
 loadMe();
+loadCred();
 load();
