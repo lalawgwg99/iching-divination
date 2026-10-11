@@ -1,5 +1,14 @@
 /* 易問 app.js */
 const API_BASE = "https://yiwen-api.taicalc.com";
+// 2026-10-11 兌換碼制：憑證走 Authorization Bearer，不再依賴 cookie
+//（iPhone Safari 擋跨站 credentials:include 會導致請求直接失敗）
+function credToken() { try { return localStorage.getItem("yiwen_cred_token") || ""; } catch (e) { return ""; } }
+function authHeaders() {
+  const h = { "Content-Type": "application/json" };
+  const t = credToken();
+  if (t) h["Authorization"] = "Bearer " + t;
+  return h;
+}
 const TESTING_UNLIMITED = false; // 2026-10-11 兌換碼試點：關閉無限免費
 let GUA = [], SYM = {}, BH = {};
 let cur = null;
@@ -55,7 +64,7 @@ let CRED = null;   // {type, uses_left, expires_at} | null
 let FREE_LEFT = 3;
 async function loadCred() {
   try {
-    const r = await fetch(API_BASE + "/api/cred", { credentials: "include" });
+    const r = await fetch(API_BASE + "/api/cred", { headers: authHeaders() });
     const d = await r.json();
     CRED = d.cred; FREE_LEFT = d.freeLeft;
   } catch (e) { CRED = null; }
@@ -68,8 +77,8 @@ async function doRedeem() {
   msg.textContent = "驗證中…";
   for (let i = 0; i < 3; i++) {
     try {
-      const r = await fetch(API_BASE + "/redeem", { method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+      const r = await fetch(API_BASE + "/redeem", { method: "POST",
+        headers: authHeaders(), body: JSON.stringify({ code }) });
       const d = await r.json();
       if (d.ok) {
         try { localStorage.setItem("yiwen_cred_token", d.token); } catch (e) {}
@@ -406,7 +415,7 @@ $("aiOut").innerHTML = `<div class="loading"><div class="hexload"><i></i><i></i>
 try {
   const { ben, zhi, question } = cur;
   const cr = await fetch(API_BASE + "/divine/clarify", {
-    method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+    method: "POST", headers: authHeaders(),
     body: JSON.stringify({ question, topic: curTopic, benGua: { name: ben.name, n: ben.n }, zhiGua: { name: zhi.name, n: zhi.n } })
   });
   const cj = await cr.json();
@@ -435,7 +444,7 @@ try {
 const { ben, zhi, yaos, question} = cur;
 const moving = yaos.map((y, i) => y.moving? { label: y.label, ben: ben.yao[i].text, zhi: zhi.yao[i].text, zhiLabel: zhi.yao[i].label}: null).filter(Boolean);
 const r = await fetch(API_BASE + "/divine", {
-method: "POST", credentials: "include", headers: { "Content-Type": "application/json"},
+method: "POST", headers: authHeaders(),
 body: JSON.stringify({
 question, topic: curTopic, clarify,
 benGua: { name: ben.name, n: ben.n, guaci: ben.guaci, baihua: bhOf(ben.name)},
@@ -624,7 +633,7 @@ $("followList").innerHTML += `<div class="f-q">追問：${esc(q)}</div><div clas
 $("followQ").value = "";
 try {
 const r = await fetch(API_BASE + "/divine/follow", {
-method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
+method: "POST", headers: authHeaders(),
 body: JSON.stringify({
 question: cur.question, topic: curTopic,
 benGua: { name: cur.ben.name, n: cur.ben.n, guaci: cur.ben.guaci, baihua: bhOf(cur.ben.name) },
@@ -940,8 +949,8 @@ $("qianBtn").addEventListener("click", async () => {
   $("qianAi").innerHTML = `<div class="loading">解籤中…</div>`;
   rs.scrollIntoView({ behavior: "smooth", block: "nearest" });
   try {
-    const r = await fetch(API_BASE + "/divine/yao", { method: "POST", credentials: "include",
-      headers: { "Content-Type": "application/json" },
+    const r = await fetch(API_BASE + "/divine/yao", { method: "POST",
+      headers: authHeaders(),
       body: JSON.stringify({ guaN: g.n, guaName: g.name, yaoLabel: yao.label, yaoText: yao.text }) });
     if (r.status === 402) { $("qianAi").innerHTML = `免費額度用完了，<br><button class="btn ghost" style="margin:8px auto 0;width:auto;padding:8px 14px;" onclick="openRedeem()">輸入密碼開通</button>`; btn.disabled = false; btn.textContent = "再求一籤"; return; }
     const d = await r.json();
@@ -1537,8 +1546,8 @@ load();
   setTimeout(async () => {
     for (let i = 0; i < 3; i++) {
       try {
-        const r = await fetch(API_BASE + "/redeem", { method: "POST", credentials: "include",
-          headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: c }) });
+        const r = await fetch(API_BASE + "/redeem", { method: "POST",
+          headers: authHeaders(), body: JSON.stringify({ code: c }) });
         const d = await r.json();
         if (d.ok) {
           try { localStorage.setItem("yiwen_cred_token", d.token); } catch (e) {}
