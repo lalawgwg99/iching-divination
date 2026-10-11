@@ -492,11 +492,11 @@ function renderQuota() {
 if (ME && ME.loggedIn) { renderQuotaMember(); return; }
 // 2026-10-11 兌換碼制：憑證狀態走 /api/cred（CRED／FREE_LEFT 由 loadCred 更新）
 if (CRED && CRED.type === "subscription") {
-  $("quotaBox").innerHTML = `月訂會員・無限解卦 <span style="color:var(--ink2);font-size:.85rem;">有效期至 ${new Date(CRED.expires_at * 1000).toLocaleDateString("zh-TW")}</span>`;
+  $("quotaBox").innerHTML = `月訂會員・無限解卦 <span style="color:var(--ink2);font-size:.85rem;">有效期至 ${new Date(CRED.expires_at * 1000).toLocaleDateString("zh-TW")}</span> <a href="/account" style="font-size:.8rem;">我的權益</a>`;
   return;
 }
 if (CRED && CRED.type === "one_time" && CRED.uses_left > 0) {
-  $("quotaBox").innerHTML = `密碼已開通・本次可解卦 <b style="font-size:1.5rem;">1</b> 次`;
+  $("quotaBox").innerHTML = `密碼已開通・本次可解卦 <b style="font-size:1.5rem;">1</b> 次 <a href="/account" style="font-size:.8rem;">我的權益</a>`;
   return;
 }
 const n = FREE_LEFT;

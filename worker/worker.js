@@ -631,6 +631,58 @@ export default {
       });
     }
 
+    /* ===== 換手機移轉（2026-10-11）：舊手機產生 6 位移轉碼，新手機輸入繼承剩餘權益 ===== */
+    // 舊手機：產生移轉碼（需有效憑證；10 分鐘有效，一次性）
+    if (path === "/api/transfer/generate" && req.method === "POST") {
+      try {
+        const cred = await getCred(env, req);
+        const now = Math.floor(Date.now() / 1000);
+        if (!cred) return json(req, { error: "no_cred" }, 401);
+        if (cred.type === "subscription" && cred.expires_at && cred.expires_at < now)
+          return json(req, { error: "expired" }, 409);
+        if (cred.type === "one_time" && (!cred.uses_left || cred.uses_left <= 0))
+          return json(req, { error: "quota_exhausted" }, 409);
+        // 同一憑證一次只有一組有效移轉碼：先作廢舊的
+        await env.DB.prepare("UPDATE transfer_codes SET used = 1 WHERE credential_id = ? AND used = 0").bind(cred.id).run();
+        const code = String(100000 + Math.floor(crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
+        const h = await sha256hex("transfer|" + code);
+        await env.DB.prepare("INSERT INTO transfer_codes(code_hash, credential_id, expires_at, created_at) VALUES(?, ?, ?, ?)")
+          .bind(h, cred.id, now + 600, now).run();
+        return json(req, { ok: true, code, expires_in: 600 });
+      } catch (e) { return json(req, { error: "gen_failed" }, 500); }
+    }
+    // 新手機：輸入移轉碼 → 舊憑證作廢 → 發新憑證繼承剩餘權益
+    if (path === "/api/transfer/claim" && req.method === "POST") {
+      try {
+        const b = await req.json();
+        const input = String(b.transfer_code || "").replace(/\D/g, "").slice(0, 6);
+        const now = Math.floor(Date.now() / 1000);
+        if (input.length !== 6) return json(req, { error: "bad_code" }, 400);
+        const h = await sha256hex("transfer|" + input);
+        const tc = await env.DB.prepare("SELECT * FROM transfer_codes WHERE code_hash = ?").bind(h).first();
+        if (!tc || tc.used || tc.expires_at < now) return json(req, { error: "invalid_or_expired" }, 400);
+        const cred = await env.DB.prepare("SELECT * FROM credentials WHERE id = ?").bind(tc.credential_id).first();
+        if (!cred || cred.revoked) return json(req, { error: "invalid_or_expired" }, 400);
+        if (cred.type === "subscription" && cred.expires_at && cred.expires_at < now)
+          return json(req, { error: "expired" }, 409);
+        if (cred.type === "one_time" && (!cred.uses_left || cred.uses_left <= 0))
+          return json(req, { error: "quota_exhausted" }, 409);
+        // 發新憑證＋作廢舊憑證＋移轉碼標已用（原子 batch）
+        const tokBytes = crypto.getRandomValues(new Uint8Array(32));
+        const token = b64url(tokBytes);
+        const th = await sha256hex(token);
+        await env.DB.batch([
+          env.DB.prepare("INSERT INTO credentials(code_id, token_hash, type, uses_left, expires_at, created_at) VALUES(?, ?, ?, ?, ?, ?)")
+            .bind(cred.code_id, th, cred.type, cred.uses_left, cred.expires_at, now),
+          env.DB.prepare("UPDATE credentials SET revoked = 1 WHERE id = ?").bind(cred.id),
+          env.DB.prepare("UPDATE transfer_codes SET used = 1 WHERE id = ?").bind(tc.id),
+        ]);
+        const headers = { ...cors(req),
+          "Set-Cookie": `yiwen_cred=${encodeURIComponent(token)}; Path=/; HttpOnly; Secure; SameSite=None; Max-Age=2592000` };
+        return new Response(JSON.stringify({ ok: true, token, type: cred.type, uses_left: cred.uses_left, expires_at: cred.expires_at }), { headers });
+      } catch (e) { return json(req, { error: "claim_failed" }, 500); }
+    }
+
     /* ===== 發碼後台（x-admin-key，2026-10-11 Phase 0） ===== */
     const needAdmin = (path === "/api/admin/codes" || path === "/api/admin/codes/revoke" || path === "/api/admin/codes/update" || path === "/api/admin/orders/confirm" || path === "/api/admin/orders/reject" || path === "/api/admin/settings") && req.method === "POST";
     if (needAdmin && req.headers.get("x-admin-key") !== env.ADMIN_KEY) {

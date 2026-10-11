@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的權益｜易問</title>
+<style>
+  body { font-family: system-ui, -apple-system, "Noto Sans TC", sans-serif; max-width: 520px; margin: 0 auto; padding: 24px 16px; color: #2b2620; background: #faf8f3; }
+  h1 { font-size: 1.25rem; text-align: center; }
+  .hint { font-size: .85rem; color: #8a7f6d; line-height: 1.8; }
+  .card { background: #fff; border: 1px solid #e5ddcf; border-radius: 12px; padding: 16px; margin: 12px 0; }
+  .big { font-size: 1.1rem; line-height: 2; text-align: center; }
+  input { width: 100%; padding: 12px; border: 1px solid #d8cfbc; border-radius: 8px; font-size: 1.3rem; letter-spacing: .3em; text-align: center; box-sizing: border-box; }
+  button { width: 100%; margin-top: 10px; padding: 12px; border: none; border-radius: 8px; background: #2f5d3a; color: #fff; font-size: 1rem; letter-spacing: .15em; cursor: pointer; }
+  button.ghost { background: #fff; color: #2f5d3a; border: 1px solid #2f5d3a; }
+  button:disabled { opacity: .5; }
+  .code { font-size: 2.2rem; letter-spacing: .4em; text-align: center; padding: 16px; background: #f3efe6; border-radius: 8px; margin: 10px 0; }
+  .msg { min-height: 1.4em; font-size: .9rem; margin-top: 8px; text-align: center; }
+  .ok { color: #2f7d3a; } .err { color: #b03a2e; }
+  .back { display: block; text-align: center; margin-top: 16px; font-size: .9rem; color: #2f5d3a; }
+</style>
+</head>
+<body>
+<h1>🎫 我的權益</h1>
+<div class="card">
+  <div class="big" id="statusBox">查詢中…</div>
+  <div class="hint" id="statusHint" style="text-align:center;"></div>
+</div>
+
+<div class="card" id="oldPhoneCard" style="display:none;">
+  <h3 style="margin-top:0;">📱 換手機（舊手機操作）</h3>
+  <div class="hint">按下面按鈕產生一組 6 位移轉碼，<b>10 分鐘內</b>在新手機輸入，剩餘天數／次數就會搬過去，舊手機自動失效。</div>
+  <button id="genBtn" onclick="genTransfer()">產生移轉碼</button>
+  <div id="transferOut"></div>
+  <div class="msg" id="genMsg"></div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">📲 我是新手機</h3>
+  <div class="hint">在舊手機「我的權益」按「產生移轉碼」，把 6 位數字填在下面：</div>
+  <input id="tcode" placeholder="6 位數字" maxlength="6" inputmode="numeric" autocomplete="off" style="margin-top:8px;">
+  <button class="ghost" onclick="claimTransfer()">移轉權益到這支手機</button>
+  <div class="msg" id="claimMsg"></div>
+</div>
+
+<a class="back" href="/">← 回易問首頁</a>
+
+<script>
+const API = "https://yiwen-api.taicalc.com";
+const $ = id => document.getElementById(id);
+function token() { try { return localStorage.getItem("yiwen_cred_token") || ""; } catch (e) { return ""; } }
+function authHeaders() {
+  const h = { "Content-Type": "application/json" };
+  const t = token();
+  if (t) h["Authorization"] = "Bearer " + t;
+  return h;
+}
+function fmtDate(ts) { const d = new Date(ts * 1000); return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`; }
+
+async function loadStatus() {
+  try {
+    const r = await fetch(API + "/api/cred", { headers: authHeaders() });
+    const d = await r.json();
+    const c = d.cred;
+    if (!c) {
+      $("statusBox").innerHTML = `這支手機目前沒有開通的權益`;
+      $("statusHint").textContent = "有密碼的話，去首頁「輸入密碼開通」；換手機的話，在下面輸入移轉碼。";
+      return;
+    }
+    if (c.type === "subscription") {
+      const days = Math.max(0, Math.ceil((c.expires_at - Date.now() / 1000) / 86400));
+      $("statusBox").innerHTML = `月訂會員・無限解卦<br><span style="font-size:.9rem;color:#8a7f6d;">有效期至 ${fmtDate(c.expires_at)}（剩約 ${days} 天）</span>`;
+    } else {
+      $("statusBox").innerHTML = c.uses_left > 0
+        ? `單次密碼・還可解卦 <b>${c.uses_left}</b> 次`
+        : `單次密碼已用完`;
+    }
+    $("statusHint").textContent = "";
+    if ((c.type === "subscription") || (c.type === "one_time" && c.uses_left > 0)) {
+      $("oldPhoneCard").style.display = "";
+    }
+  } catch (e) {
+    $("statusBox").textContent = "連線失敗，請重整再試";
+  }
+}
+
+let countdownTimer = null;
+async function genTransfer() {
+  $("genMsg").textContent = ""; $("genMsg").className = "msg";
+  $("genBtn").disabled = true; $("genBtn").textContent = "產生中…";
+  try {
+    const r = await fetch(API + "/api/transfer/generate", { method: "POST", headers: authHeaders() });
+    const d = await r.json();
+    if (d.ok) {
+      let left = d.expires_in;
+      $("transferOut").innerHTML = `<div class="code">${d.code}</div><div class="hint" style="text-align:center;" id="cdLine"></div>`;
+      const tick = () => {
+        const m = Math.floor(left / 60), s = left % 60;
+        const el = $("cdLine");
+        if (el) el.innerHTML = `在新手機輸入這組號碼，剩餘 <b>${m}:${String(s).padStart(2, "0")}</b> 有效`;
+        if (left <= 0) { clearInterval(countdownTimer); if (el) el.textContent = "已過期，請重新產生"; }
+        left--;
+      };
+      clearInterval(countdownTimer); tick(); countdownTimer = setInterval(tick, 1000);
+    } else {
+      $("genMsg").textContent = d.error === "no_cred" ? "這支手機沒有有效憑證" : d.error === "expired" ? "會員已到期" : d.error === "quota_exhausted" ? "次數已用完" : "產生失敗，請再試一次";
+      $("genMsg").className = "msg err";
+    }
+  } catch (e) { $("genMsg").textContent = "連線失敗"; $("genMsg").className = "msg err"; }
+  $("genBtn").disabled = false; $("genBtn").textContent = "產生移轉碼";
+}
+
+async function claimTransfer() {
+  const code = $("tcode").value.replace(/\D/g, "");
+  if (code.length !== 6) { $("claimMsg").textContent = "請輸入 6 位數字"; $("claimMsg").className = "msg err"; return; }
+  $("claimMsg").textContent = "移轉中…"; $("claimMsg").className = "msg";
+  try {
+    const r = await fetch(API + "/api/transfer/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ transfer_code: code }) });
+    const d = await r.json();
+    if (d.ok) {
+      try { localStorage.setItem("yiwen_cred_token", d.token); } catch (e) {}
+      $("claimMsg").textContent = "✅ 移轉成功！權益已搬到這支手機，舊手機自動失效。";
+      $("claimMsg").className = "msg ok";
+      loadStatus();
+    } else {
+      $("claimMsg").textContent = d.error === "invalid_or_expired" ? "移轉碼不對或已過期，請在舊手機重新產生" : d.error === "expired" ? "原會員已到期" : d.error === "quota_exhausted" ? "原密碼次數已用完" : "移轉失敗，請再試一次";
+      $("claimMsg").className = "msg err";
+    }
+  } catch (e) { $("claimMsg").textContent = "連線失敗"; $("claimMsg").className = "msg err"; }
+}
+loadStatus();
+</script>
+</body>
+</html>
