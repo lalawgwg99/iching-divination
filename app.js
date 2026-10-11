@@ -114,7 +114,8 @@ async function loadPayinfo() {
     const r = await fetch(API_BASE + "/api/payinfo");
     __payinfo = await r.json();
   } catch (e) {
-    __payinfo = { bank: { enabled: true, account: "請向商家索取轉帳帳號" }, linepay: { enabled: false } };
+    __payinfo = { bank: { enabled: true, account: "請向商家索取轉帳帳號" }, linepay: { enabled: false },
+      verify_note: "本服務採人工對帳，款項確認後約 30 分鐘內發送開通連結。每日審核時段 09:00–22:00，深夜付款將於隔日早晨依序處理，敬請見諒。" };
   }
   return __payinfo;
 }
@@ -125,6 +126,7 @@ function plansHTML() {
   const q = "oq" + (++__orderSeq);
   const html = `<div class="plans"><div class="hint" style="text-align:center;padding:8px 0;">
     有密碼的人請點右上「輸入密碼」開通。<br>還沒買？付款後填下面表格，商家確認就發開通連結給你。</div>
+  <div id="${q}-verifynote" style="text-align:center;padding:10px;margin:4px auto 8px;max-width:420px;background:#fff8e6;border:1px solid #e8c96a;border-radius:8px;line-height:1.8;font-size:.88rem;"></div>
   <div id="${q}-form" style="text-align:left;max-width:420px;margin:0 auto;">
     <label style="display:block;font-size:.85rem;color:var(--ink2);margin:8px 0 4px;">方案</label>
     <select id="${q}-type" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;background:#fff;">
@@ -143,7 +145,11 @@ function plansHTML() {
     <button class="btn" style="width:100%;margin-top:12px;padding:12px;letter-spacing:.2em;" onclick="submitOrder('${q}')">送出訂單</button>
     <div id="${q}-msg" class="hint" style="margin-top:8px;min-height:1.2em;color:#b03a2e;"></div>
   </div></div>`;
-  loadPayinfo().then(pi => renderPayMethods(q, pi));
+  loadPayinfo().then(pi => {
+    renderPayMethods(q, pi);
+    const vn = $(q + "-verifynote");
+    if (vn) vn.textContent = pi.verify_note ? "⏳ " + pi.verify_note : "";
+  });
   return html;
 }
 function renderPayMethods(q, pi) {
@@ -177,7 +183,8 @@ function renderPayMethods(q, pi) {
         + (name ? `<br>收款人：${escHtml(name)}` : ``)
         + `<br>轉帳完成後，填寫你的 LINE 顯示名稱（商家對帳用）：</div>
         <input id="${q}-payref" placeholder="例如：陳小明" maxlength="40" autocomplete="off"
-          style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;">`;
+          style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;">
+        <div class="hint" style="margin-top:6px;">💡 送出訂單後會給你一組訂單編號，轉帳時請填在 LINE Pay 的「訊息」欄，商家才能快速對帳。</div>`;
     }
   };
   box.querySelectorAll(`input[name="${q}-pm"]`).forEach(r => r.addEventListener("change", render));
@@ -205,8 +212,14 @@ async function submitOrder(q) {
         body: JSON.stringify({ buyer_name: name, contact, type, pay_method, last5, pay_ref }) });
       const d = await r.json();
       if (d.ok) {
+        const vn = __payinfo.verify_note ? `<br><span style="font-size:.85rem;">⏳ ${escHtml(__payinfo.verify_note)}</span>` : "";
+        const memoTip = pay_method === "linepay"
+          ? `<span style="font-size:.92rem;">轉帳時請在 LINE Pay 的「訊息」欄填寫訂單編號，商家才能快速對帳。</span><br>` : "";
         $(q + "-form").innerHTML = `<div style="text-align:center;padding:16px 0;line-height:2;">
-          ✅ 訂單已送出！<br><span style="font-size:.9rem;color:var(--ink2);">商家確認收到款項後，會把開通連結傳給你。<br>（聯絡方式：${escHtml(contact)}）</span></div>`;
+          ✅ 訂單已送出！<br>
+          <div style="font-size:1.25rem;letter-spacing:.12em;margin:8px 0;">訂單編號 <b>#${d.order_no || ""}</b></div>
+          ${memoTip}
+          <span style="font-size:.9rem;color:var(--ink2);">商家確認收到款項後，會把開通連結傳給你（聯絡方式：${escHtml(contact)}）。${vn}</span></div>`;
         return;
       }
       msg.style.color = "#b03a2e";

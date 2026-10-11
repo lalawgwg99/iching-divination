@@ -61,6 +61,8 @@
     <div><label>LINE Pay 轉帳代碼</label><input id="payLineCode" placeholder="例如：A1B2C3" maxlength="120"></div>
     <div><label>你的 LINE 顯示名稱（買家核對用）</label><input id="payLineName" placeholder="例如：易問小幫手" maxlength="120"></div>
   </div>
+  <label style="margin-top:8px;">審核時段說明（買家下單頁會顯示，讓客人知道大概要等多久）</label>
+  <input id="payVerifyNote" maxlength="300" placeholder="例如：本服務採人工對帳，款項確認後約 30 分鐘內發送開通連結。每日審核時段 09:00–22:00，深夜付款將於隔日早晨依序處理。">
   <div class="msg" id="payMsg"></div>
 </div>
 
@@ -83,7 +85,7 @@
 
 <div class="card">
   <h2>待確認收款 <button class="mini" id="ordBtn" style="float:right;">重新整理</button></h2>
-  <div class="hint">客人付款後會在這裡出現。銀行轉帳就去查銀行帳對末五碼；LINE Pay 就去 LINE 錢包查帳，對顯示名稱和金額。對得上就按「確認收款並發碼」，系統自動產生密碼＋開通連結，你複製傳給客人就行。對不上就按「退回」。</div>
+  <div class="hint">客人付款後會在這裡出現。<b>對帳三重確認：金額＋轉帳時間＋備註的訂單編號。</b>⚠ LINE 顯示名稱可能重複、客人也可能改名，不要只看暱稱，一定要對訂單編號。對得上就按「確認收款並發碼」，系統自動產生密碼＋開通連結，你複製傳給客人就行。對不上就按「退回」。審核時段記得在「收款設定」寫清楚，免得客人半夜付款以為被騙。</div>
   <div id="ordOut"><div class="sub">載入中…</div></div>
 </div>
 
@@ -98,6 +100,8 @@
   <select id="fType">
     <option value="one_time">單次問事（NT$49／客人用 1 次就失效）</option>
     <option value="subscription">月訂（NT$149／30 天無限問）</option>
+    <option value="quarter">季訂（90 天無限問，價格自己跟客人談）</option>
+    <option value="halfyear">半年訂（180 天無限問，價格自己跟客人談）</option>
   </select>
   <div class="row2">
     <div><label>買家姓名（方便到期提醒）</label><input id="fBuyer" placeholder="例如：陳先生" maxlength="40"></div>
@@ -114,6 +118,9 @@
 
 <div class="card">
   <h2>已發密碼 <button class="mini" id="reloadBtn" style="float:right;">重新整理</button></h2>
+  <input id="codeSearch" placeholder="🔍 搜尋：買家姓名／聯絡方式／前碼／備註" maxlength="60" oninput="filterCodes()"
+    style="width:100%;box-sizing:border-box;margin:8px 0;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font-size:.95rem;font-family:inherit;">
+  <div class="hint">📱 客人換手機、舊機不能用時：請客人提供下單時的聯絡方式＋轉帳成功截圖（要有交易序號和時間），對上後台紀錄後，在上面搜到他的密碼按「撤銷」（舊手機自動失效），再用「產生密碼」補發一組新的給他。</div>
   <div class="hint">「轉贈／改資料」：密碼還沒被用掉之前，可以改買家姓名和聯絡方式（等於轉給別人）。「撤銷」：密碼作廢，已經開通的人也會立刻失效。</div>
   <div id="listOut" style="overflow-x:auto;"><div class="sub">載入中…</div></div>
 </div>
@@ -169,19 +176,29 @@ async function loadExp() {
       `<div class="exp-item"><span class="d">${fmtDate(e.expires_at)} 到期</span>・${esc(e.buyer_name) || "（未填姓名）"}・${esc(e.contact) || "（未填聯絡方式）"}<br><span style="color:#8a7f6d">密碼 ${esc(e.code_prefix)}•• ${esc(e.note) ? "・" + esc(e.note) : ""}</span></div>`).join("");
   } catch (e) { $("expOut").innerHTML = `<div class="sub">${esc(e.message)}</div>`; }
 }
+function filterCodes() {
+  const kw = ($("codeSearch").value || "").trim().toLowerCase();
+  document.querySelectorAll("#listOut tr[id^='row-']").forEach(tr => {
+    tr.style.display = !kw || tr.textContent.toLowerCase().includes(kw) ? "" : "none";
+  });
+}
+function codeTypeLabel(t) {
+  return { one_time: "單次", subscription: "月訂", quarter: "季訂(90天)", halfyear: "半年訂(180天)" }[t] || t;
+}
 async function loadList() {
   if (!akey()) { $("listOut").innerHTML = `<div class="sub">先填管理密鑰</div>`; return; }
   try {
     const d = await api("/api/admin/codes", "GET");
     if (!d.codes.length) { $("listOut").innerHTML = `<div class="sub">還沒發過密碼</div>`; return; }
     $("listOut").innerHTML = `<table><tr><th>前碼</th><th>種類</th><th>狀態</th><th>已用</th><th>買家</th><th></th></tr>` +
-      d.codes.map(c => `<tr id="row-${c.id}" data-buyer="${esc(c.buyer_name)}" data-contact="${esc(c.contact)}" data-note="${esc(c.note)}"><td style="font-family:monospace">${esc(c.code_prefix)}••</td><td>${c.type === "subscription" ? "月訂" : "單次"}</td>` +
+      d.codes.map(c => `<tr id="row-${c.id}" data-buyer="${esc(c.buyer_name)}" data-contact="${esc(c.contact)}" data-note="${esc(c.note)}"><td style="font-family:monospace">${esc(c.code_prefix)}••</td><td>${codeTypeLabel(c.type)}</td>` +
         `<td class="${c.status !== "active" ? "revoked" : ""}">${c.status === "active" ? "有效" : "已撤銷"}</td>` +
         `<td>${c.used_count}/${c.max_uses}</td><td>${esc(c.buyer_name) || ""}${c.contact ? "<br>" + esc(c.contact) : ""}${c.note ? "<br><span style='color:#8a7f6d'>" + esc(c.note) + "</span>" : ""}</td>` +
         (c.status === "active"
           ? `<td style="white-space:nowrap"><button class="mini" onclick="revoke(${c.id}, this)">撤銷</button>` +
             (c.used_count === 0 ? `<button class="mini" onclick="reassign(${c.id})">轉贈／改資料</button>` : "") + `</td>`
           : `<td></td>`) + `</tr>`).join("") + `</table>`;
+    filterCodes();
   } catch (e) { $("listOut").innerHTML = `<div class="sub">${esc(e.message)}</div>`; }
 }
 function revoke(id, btn) {
@@ -272,6 +289,7 @@ async function loadPaySettings() {
     $("payLineOn").checked = s.pay_linepay_enabled === "1";
     $("payLineCode").value = s.linepay_code || "";
     $("payLineName").value = s.linepay_name || "";
+    $("payVerifyNote").value = s.verify_note || "";
   } catch (e) { $("payMsg").textContent = e.message; }
 }
 async function savePaySettings() {
@@ -284,7 +302,8 @@ async function savePaySettings() {
       bank_account: $("payBankAcct").value.trim(),
       pay_linepay_enabled: $("payLineOn").checked ? "1" : "0",
       linepay_code: $("payLineCode").value.trim(),
-      linepay_name: $("payLineName").value.trim()
+      linepay_name: $("payLineName").value.trim(),
+      verify_note: $("payVerifyNote").value.trim()
     });
     $("payMsg").textContent = "✅ 已儲存，買家下單頁會立即更新";
   } catch (e) { $("payMsg").textContent = e.message; }

@@ -486,18 +486,21 @@ export default {
       const tokBytes = crypto.getRandomValues(new Uint8Array(32));
       const token = b64url(tokBytes);
       const th = await sha256hex(token);
-      const usesLeft = code.type === "subscription" ? null : 1;
-      const expAt = code.type === "subscription" ? now + 30 * 86400 : 0;
+      const usesLeft = code.type === "one_time" ? 1 : null;
+      // 2026-10-11 盲點2：訂閱週期參數化（月訂30／季訂90／半年訂180天），憑證一律記 subscription 讓下游邏輯不變
+      const planDays = { subscription: 30, quarter: 90, halfyear: 180 }[code.type] || 30;
+      const expAt = code.type === "one_time" ? 0 : now + planDays * 86400;
+      const credType = code.type === "one_time" ? "one_time" : "subscription";
       const idem = "r" + h.slice(0, 16) + "-" + now + "-" + code.id;
       const rs = await env.DB.batch([
         env.DB.prepare("UPDATE codes SET used_count = used_count + 1 WHERE id = ? AND used_count < max_uses").bind(code.id),
         env.DB.prepare("INSERT INTO redemption_events(code_id, event_type, result, idempotency_key, ip_hash, created_at) VALUES(?, 'redeem', 'ok', ?, ?, ?)")
           .bind(code.id, idem, iph, now),
         env.DB.prepare("INSERT INTO credentials(code_id, token_hash, type, uses_left, expires_at, created_at) VALUES(?, ?, ?, ?, ?, ?)")
-          .bind(code.id, th, code.type, usesLeft, expAt, now),
+          .bind(code.id, th, credType, usesLeft, expAt, now),
       ]);
       if (!rs[0].meta.changes) { await logFail("race_used_up"); return { ok: false, error: "invalid", status: 400 }; }
-      return { ok: true, type: code.type, uses_left: usesLeft, expires_at: expAt, token };
+      return { ok: true, type: credType, uses_left: usesLeft, expires_at: expAt, token };
     }
     if (path === "/redeem" && req.method === "POST") {
       try {
@@ -691,7 +694,7 @@ export default {
     if (path === "/api/admin/codes" && req.method === "POST") {
       try {
         const b = await req.json();
-        const type = b.type === "subscription" ? "subscription" : "one_time";
+        const type = ["one_time", "subscription", "quarter", "halfyear"].includes(b.type) ? b.type : "one_time";
         const count = Math.min(Math.max(parseInt(b.count) || 1, 1), 100);
         const days = parseInt(b.days) || 0;
         const note = String(b.note || "").slice(0, 100);
@@ -802,7 +805,9 @@ export default {
       for (const r of (rows.results || [])) s[r.k] = r.v;
       return json(req, {
         bank: { enabled: s.pay_bank_enabled !== "0", account: s.bank_account || "" },
-        linepay: { enabled: s.pay_linepay_enabled === "1", code: s.linepay_code || "", name: s.linepay_name || "" }
+        linepay: { enabled: s.pay_linepay_enabled === "1", code: s.linepay_code || "", name: s.linepay_name || "" },
+        // 2026-10-11 盲點1：人工審核預期管理文案，買家下單頁顯示，商家可在後台改
+        verify_note: s.verify_note || "本服務採人工對帳，款項確認後約 30 分鐘內發送開通連結。每日審核時段 09:00–22:00，深夜付款將於隔日早晨依序處理，敬請見諒。"
       });
     }
     if (path === "/api/admin/settings" && req.method === "GET") {
@@ -815,12 +820,13 @@ export default {
     if (path === "/api/admin/settings" && req.method === "POST") {
       try {
         const b = await req.json();
-        const allow = ["bank_account", "pay_bank_enabled", "pay_linepay_enabled", "linepay_code", "linepay_name"];
+        const allow = ["bank_account", "pay_bank_enabled", "pay_linepay_enabled", "linepay_code", "linepay_name", "verify_note"];
         const stmts = [];
         for (const k of allow) {
           if (b[k] === undefined) continue;
+          const maxLen = k === "verify_note" ? 300 : 120;
           stmts.push(env.DB.prepare("INSERT INTO settings(k, v) VALUES(?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v")
-            .bind(k, String(b[k]).slice(0, 120)));
+            .bind(k, String(b[k]).slice(0, maxLen)));
         }
         if (stmts.length) await env.DB.batch(stmts);
         return json(req, { ok: true });
@@ -846,10 +852,11 @@ export default {
         if (!contact) return json(req, { error: "need_contact" }, 400);
         if (pay_method === "bank" && last5.length !== 5) return json(req, { error: "bad_last5" }, 400);
         if (pay_method === "linepay" && !pay_ref) return json(req, { error: "need_pay_ref" }, 400);
-        await env.DB.prepare(
+        const ins = await env.DB.prepare(
           "INSERT INTO orders(buyer_name, contact, type, pay_method, last5, pay_ref, status, ip_hash, created_at) VALUES(?, ?, ?, ?, ?, ?, 'pending', ?, ?)")
           .bind(buyer_name, contact, type, pay_method, last5, pay_ref, iph, now).run();
-        return json(req, { ok: true });
+        // 2026-10-11 盲點4：回傳訂單編號，買家轉帳備註填寫用，商家三重對帳（金額＋時間＋編號）
+        return json(req, { ok: true, order_no: ins.meta.last_row_id });
       } catch (e) { return json(req, { error: "order_failed" }, 500); }
     }
 
