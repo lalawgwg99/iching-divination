@@ -254,6 +254,15 @@ if (typeof qijuInit === "function") qijuInit(); renderQuota(); renderDaily();
 const _due = getHist().filter(x => !x.rv && Date.now() - x.at >= RV_DUE).length;
 if (_due > 0) setTimeout(() => toast(`有 ${_due} 卦可以寫覆盤了`), 2600);
 const yr = $("year"); if (yr) yr.textContent = new Date().getFullYear();
+// 2026-10-11 盲點修補：?buy=1 預覽買家下單頁（商家檢核／驗收用，不影響付費牆邏輯）
+if (/[?&]buy=1/.test(location.search)) {
+  const sec = document.createElement("section");
+  sec.className = "card plain"; sec.id = "buyPreview"; sec.style.marginTop = "12px";
+  sec.innerHTML = `<h2 style="text-align:center;">購買方案</h2>` + plansHTML();
+  const foot = document.querySelector("footer");
+  (foot ? foot.parentNode : document.body).insertBefore(sec, foot || null);
+  setTimeout(() => sec.scrollIntoView(), 600);
+}
 }
 const byName = n => GUA.find(g => g.name === n);
 const symOf = n => SYM[n] || "";
