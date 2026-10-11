@@ -82,8 +82,10 @@ $("genBtn").onclick = async () => {
     const d = await api("/api/admin/codes", "POST", {
       type: $("fType").value, count: $("fCount").value, note: $("fNote").value });
     $("genMsg").textContent = "";
+    const linkFor = c => "https://yiwen.taicalc.com/?code=" + encodeURIComponent(c);
     $("genOut").innerHTML = `<div class="warn">⚠ ${d.warning}</div>` + d.codes.map(c =>
-      `<div class="code-out"><span>${c}</span><button class="mini" onclick="navigator.clipboard.writeText('${c}').then(()=>this.textContent='已複製')">複製</button></div>`).join("");
+      `<div class="code-out"><span>${c}</span><button class="mini" onclick="navigator.clipboard.writeText('${c}').then(()=>this.textContent='已複製')">複製</button></div>
+       <div style="margin:-4px 0 10px;"><button class="mini" onclick="navigator.clipboard.writeText('${linkFor(c)}').then(()=>this.textContent='已複製連結')">複製開通連結（客人點開自動開通）</button></div>`).join("");
     loadList();
   } catch (e) { $("genMsg").textContent = e.message; }
 };

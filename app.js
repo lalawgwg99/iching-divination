@@ -1525,3 +1525,23 @@ setTimeout(() => { try { $("q").focus({ preventScroll: true }); } catch (e) { $(
 loadMe();
 loadCred();
 load();
+// 2026-10-11 連結一點就開通：?code=XXXX-XXXX-XXXX，客人不用動手輸密碼
+(function autoRedeemFromLink() {
+  const c = new URLSearchParams(location.search).get("code");
+  if (!c) return;
+  history.replaceState(null, "", location.pathname);
+  setTimeout(async () => {
+    try {
+      const r = await fetch(API_BASE + "/redeem", { method: "POST", credentials: "include",
+        headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code: c }) });
+      const d = await r.json();
+      if (d.ok) {
+        try { localStorage.setItem("yiwen_cred_token", d.token); } catch (e) {}
+        await loadCred();
+        toast(d.type === "subscription" ? "開通成功！月訂會員 30 天無限解卦" : "開通成功！可解卦 1 次，用完即失效");
+      } else {
+        toast(d.error === "invalid_hint" ? d.hint : "這條開通連結無效或已用過");
+      }
+    } catch (e) { toast("連線失敗，請再試一次"); }
+  }, 800);
+})();
