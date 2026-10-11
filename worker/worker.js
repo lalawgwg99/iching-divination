@@ -36,7 +36,7 @@ function cors(req) {
   const o = req.headers.get("Origin") || "";
   const h = {
     "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Admin-Key",
     "Content-Type": "application/json; charset=utf-8",
   };
   if (o === FRONTEND) {

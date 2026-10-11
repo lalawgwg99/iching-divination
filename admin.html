@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>易問・發碼後台</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, "Noto Sans TC", sans-serif; max-width: 640px; margin: 0 auto; padding: 20px 16px 60px; background: #faf7f0; color: #2b2620; }
+  h1 { font-size: 1.3rem; margin: 0 0 4px; }
+  .sub { color: #8a7f6d; font-size: .85rem; margin-bottom: 20px; }
+  .card { background: #fff; border: 1px solid #e5ddcc; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+  .card h2 { font-size: 1rem; margin: 0 0 12px; }
+  label { display: block; font-size: .85rem; color: #8a7f6d; margin: 10px 0 4px; }
+  input, select { width: 100%; padding: 10px; font-size: 1rem; border: 1px solid #e5ddcc; border-radius: 8px; background: #fff; }
+  button.go { width: 100%; margin-top: 14px; padding: 12px; font-size: 1rem; background: #b03a2e; color: #fff; border: none; border-radius: 8px; letter-spacing: .2em; }
+  button.go:active { opacity: .85; }
+  button.mini { padding: 6px 12px; font-size: .85rem; border: 1px solid #e5ddcc; background: #fff; border-radius: 6px; }
+  .code-out { font-family: monospace; font-size: 1.15rem; letter-spacing: .1em; background: #f4efe4; border: 1px dashed #b03a2e; border-radius: 8px; padding: 12px; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .warn { color: #b03a2e; font-size: .85rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eee5d3; }
+  th { color: #8a7f6d; font-weight: normal; }
+  .revoked { color: #b03a2e; }
+  .msg { min-height: 1.4em; font-size: .9rem; color: #b03a2e; margin-top: 8px; }
+</style>
+</head>
+<body>
+<h1>易問・發碼後台</h1>
+<div class="sub">兌換碼試點 Phase 0 ｜ 密碼明碼只顯示一次，請立即複製傳給客人</div>
+
+<div class="card">
+  <h2>管理密鑰</h2>
+  <input id="admKey" type="password" placeholder="貼上 ADMIN_KEY（只存這台裝置）" autocomplete="off">
+  <div class="msg" id="keyMsg"></div>
+</div>
+
+<div class="card">
+  <h2>產生密碼</h2>
+  <label>種類</label>
+  <select id="fType">
+    <option value="one_time">單次問事（NT$49／用 1 次即失效）</option>
+    <option value="subscription">月訂（NT$149／30 天無限）</option>
+  </select>
+  <label>數量（1–100）</label>
+  <input id="fCount" type="number" value="1" min="1" max="100">
+  <label>備註（例如客人名字後兩字，方便對帳）</label>
+  <input id="fNote" placeholder="例如：陳先生" maxlength="100">
+  <button class="go" id="genBtn">產生密碼</button>
+  <div class="msg" id="genMsg"></div>
+  <div id="genOut"></div>
+</div>
+
+<div class="card">
+  <h2>已發密碼 <button class="mini" id="reloadBtn" style="float:right;">重新整理</button></h2>
+  <div id="listOut" style="overflow-x:auto;"><div class="sub">載入中…</div></div>
+</div>
+
+<script>
+const API = "https://yiwen-api.taicalc.com";
+const $ = id => document.getElementById(id);
+const keyEl = $("admKey");
+keyEl.value = localStorage.getItem("yiwen_admin_key") || "";
+keyEl.addEventListener("change", () => {
+  localStorage.setItem("yiwen_admin_key", keyEl.value.trim());
+  $("keyMsg").textContent = keyEl.value.trim() ? "已記住這台裝置" : "";
+});
+function akey() { return (keyEl.value || "").trim(); }
+async function api(path, method, body) {
+  const r = await fetch(API + path, { method: method || "GET",
+    headers: { "Content-Type": "application/json", "X-Admin-Key": akey() },
+    body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json().catch(() => ({}));
+  if (r.status === 403) throw new Error("密鑰不對");
+  if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+  return d;
+}
+$("genBtn").onclick = async () => {
+  if (!akey()) { $("genMsg").textContent = "先填管理密鑰"; return; }
+  $("genMsg").textContent = "產生中…"; $("genOut").innerHTML = "";
+  try {
+    const d = await api("/api/admin/codes", "POST", {
+      type: $("fType").value, count: $("fCount").value, note: $("fNote").value });
+    $("genMsg").textContent = "";
+    $("genOut").innerHTML = `<div class="warn">⚠ ${d.warning}</div>` + d.codes.map(c =>
+      `<div class="code-out"><span>${c}</span><button class="mini" onclick="navigator.clipboard.writeText('${c}').then(()=>this.textContent='已複製')">複製</button></div>`).join("");
+    loadList();
+  } catch (e) { $("genMsg").textContent = e.message; }
+};
+async function loadList() {
+  if (!akey()) { $("listOut").innerHTML = `<div class="sub">先填管理密鑰</div>`; return; }
+  try {
+    const d = await api("/api/admin/codes", "GET");
+    if (!d.codes.length) { $("listOut").innerHTML = `<div class="sub">還沒發過密碼</div>`; return; }
+    $("listOut").innerHTML = `<table><tr><th>前碼</th><th>種類</th><th>狀態</th><th>已用</th><th>備註</th><th></th></tr>` +
+      d.codes.map(c => `<tr><td style="font-family:monospace">${c.code_prefix}••</td><td>${c.type === "subscription" ? "月訂" : "單次"}</td>` +
+        `<td class="${c.status !== "active" ? "revoked" : ""}">${c.status === "active" ? "有效" : "已撤銷"}</td>` +
+        `<td>${c.used_count}/${c.max_uses}</td><td>${c.note || ""}</td>` +
+        (c.status === "active" ? `<td><button class="mini" onclick="revoke(${c.id})">撤銷</button></td>` : `<td></td>`) + `</tr>`).join("") + `</table>`;
+  } catch (e) { $("listOut").innerHTML = `<div class="sub">${e.message}</div>`; }
+}
+async function revoke(id) {
+  if (!confirm("確定撤銷這組密碼？已開通的憑證也會失效。")) return;
+  try { await api("/api/admin/codes/revoke", "POST", { id }); loadList(); }
+  catch (e) { alert(e.message); }
+}
+$("reloadBtn").onclick = loadList;
+if (akey()) loadList();
+</script>
+</body>
+</html>
