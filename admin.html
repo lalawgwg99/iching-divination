@@ -51,8 +51,22 @@
 </div>
 
 <div class="card">
+  <h2>收款設定 <button class="mini" id="paySaveBtn" style="float:right;">儲存</button></h2>
+  <div class="hint">買家下單時會看到你開的付款方式。LINE Pay Money 的「轉帳代碼」去 LINE → 錢包 → LINE Pay → iPASS MONEY → 轉帳代碼 找，不用加好友就能收。</div>
+  <label><input type="checkbox" id="payBankOn" style="width:auto;"> 開啟銀行轉帳</label>
+  <label>銀行轉帳帳號（顯示給買家）</label>
+  <input id="payBankAcct" placeholder="例如：台新(812)・1234-5678-9012" maxlength="120">
+  <label style="margin-top:8px;"><input type="checkbox" id="payLineOn" style="width:auto;"> 開啟 LINE Pay Money 轉帳</label>
+  <div class="row2">
+    <div><label>LINE Pay 轉帳代碼</label><input id="payLineCode" placeholder="例如：A1B2C3" maxlength="120"></div>
+    <div><label>你的 LINE 顯示名稱（買家核對用）</label><input id="payLineName" placeholder="例如：易問小幫手" maxlength="120"></div>
+  </div>
+  <div class="msg" id="payMsg"></div>
+</div>
+
+<div class="card">
   <h2>待確認收款 <button class="mini" id="ordBtn" style="float:right;">重新整理</button></h2>
-  <div class="hint">客人轉帳後會在這裡出現。去查銀行帳，末五碼對得上就按「確認收款並發碼」，系統自動產生密碼＋開通連結，你複製傳給客人就行。對不上就按「退回」。</div>
+  <div class="hint">客人付款後會在這裡出現。銀行轉帳就去查銀行帳對末五碼；LINE Pay 就去 LINE 錢包查帳，對顯示名稱和金額。對得上就按「確認收款並發碼」，系統自動產生密碼＋開通連結，你複製傳給客人就行。對不上就按「退回」。</div>
   <div id="ordOut"><div class="sub">載入中…</div></div>
 </div>
 
@@ -193,6 +207,38 @@ async function saveReassign(id) {
 $("reloadBtn").onclick = loadList;
 $("expBtn").onclick = loadExp;
 $("ordBtn").onclick = loadOrders;
+$("paySaveBtn").onclick = savePaySettings;
+async function loadPaySettings() {
+  if (!akey()) return;
+  try {
+    const d = await api("/api/admin/settings", "GET");
+    const s = d.settings || {};
+    $("payBankOn").checked = s.pay_bank_enabled !== "0";
+    $("payBankAcct").value = s.bank_account || "";
+    $("payLineOn").checked = s.pay_linepay_enabled === "1";
+    $("payLineCode").value = s.linepay_code || "";
+    $("payLineName").value = s.linepay_name || "";
+  } catch (e) { $("payMsg").textContent = e.message; }
+}
+async function savePaySettings() {
+  if (!$("payLineOn").checked && !$("payBankOn").checked) { $("payMsg").textContent = "至少要開一種付款方式"; return; }
+  if ($("payLineOn").checked && !$("payLineCode").value.trim()) { $("payMsg").textContent = "開了 LINE Pay 要填轉帳代碼"; return; }
+  $("payMsg").textContent = "儲存中…";
+  try {
+    await api("/api/admin/settings", "POST", {
+      pay_bank_enabled: $("payBankOn").checked ? "1" : "0",
+      bank_account: $("payBankAcct").value.trim(),
+      pay_linepay_enabled: $("payLineOn").checked ? "1" : "0",
+      linepay_code: $("payLineCode").value.trim(),
+      linepay_name: $("payLineName").value.trim()
+    });
+    $("payMsg").textContent = "✅ 已儲存，買家下單頁會立即更新";
+  } catch (e) { $("payMsg").textContent = e.message; }
+}
+function payLabel(o) {
+  if (o.pay_method === "linepay") return "LINE Pay・" + esc(o.pay_ref);
+  return "銀行轉帳・末五碼 <b style=\"font-size:1.1rem;letter-spacing:.1em;\">" + esc(o.last5) + "</b>";
+}
 async function loadOrders() {
   if (!akey()) { $("ordOut").innerHTML = `<div class="sub">先填管理密鑰</div>`; return; }
   try {
@@ -202,11 +248,11 @@ async function loadOrders() {
     let h = "";
     if (!pend.length) h += `<div class="ok-line">✅ 目前沒有待確認的訂單</div>`;
     h += pend.map(o => `<div class="exp-item"><b>${esc(o.buyer_name)}</b>・${esc(o.contact)}<br>` +
-      `方案：${o.type === "subscription" ? "月訂 NT$149" : "單次 NT$49"}・轉帳末五碼：<b style="font-size:1.1rem;letter-spacing:.1em;">${esc(o.last5)}</b>・${esc(o.t)}<br>` +
+      `方案：${o.type === "subscription" ? "月訂 NT$149" : "單次 NT$49"}・${payLabel(o)}・${esc(o.t)}<br>` +
       `<button class="mini" onclick="confirmOrder(${o.id}, this)">確認收款並發碼</button>` +
       `<button class="mini" onclick="rejectOrder(${o.id}, this)">退回</button></div>`).join("");
     if (done.length) h += `<div class="hint" style="margin-top:10px;">已處理：</div>` + done.slice(0, 10).map(o =>
-      `<div style="font-size:.82rem;color:#8a7f6d;padding:4px 0;">#${o.id} ${esc(o.buyer_name)}・${o.type === "subscription" ? "月訂" : "單次"}・${o.status === "confirmed" ? "已發碼" : "已退回"}</div>`).join("");
+      `<div style="font-size:.82rem;color:#8a7f6d;padding:4px 0;">#${o.id} ${esc(o.buyer_name)}・${o.type === "subscription" ? "月訂" : "單次"}・${o.pay_method === "linepay" ? "LINE Pay" : "銀行轉帳"}・${o.status === "confirmed" ? "已發碼" : "已退回"}</div>`).join("");
     $("ordOut").innerHTML = h;
   } catch (e) { $("ordOut").innerHTML = `<div class="sub">${esc(e.message)}</div>`; }
 }
@@ -236,7 +282,7 @@ async function rejectOrder(id, btn) {
   try { await api("/api/admin/orders/reject", "POST", { id }); loadOrders(); }
   catch (e) { alert(e.message); }
 }
-if (akey()) { loadList(); loadExp(); loadOrders(); }
+if (akey()) { loadList(); loadExp(); loadOrders(); loadPaySettings(); }
 </script>
 </body>
 </html>

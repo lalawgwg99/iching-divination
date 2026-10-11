@@ -517,7 +517,7 @@ export default {
     }
 
     /* ===== 發碼後台（x-admin-key，2026-10-11 Phase 0） ===== */
-    const needAdmin = (path === "/api/admin/codes" || path === "/api/admin/codes/revoke" || path === "/api/admin/codes/update" || path === "/api/admin/orders/confirm" || path === "/api/admin/orders/reject") && req.method === "POST";
+    const needAdmin = (path === "/api/admin/codes" || path === "/api/admin/codes/revoke" || path === "/api/admin/codes/update" || path === "/api/admin/orders/confirm" || path === "/api/admin/orders/reject" || path === "/api/admin/settings") && req.method === "POST";
     if (needAdmin && req.headers.get("x-admin-key") !== env.ADMIN_KEY) {
       return json(req, { error: "forbidden" }, 403);
     }
@@ -569,7 +569,7 @@ export default {
     if (path === "/api/admin/orders" && req.method === "GET") {
       if (req.headers.get("x-admin-key") !== env.ADMIN_KEY) return json(req, { error: "forbidden" }, 403);
       const rows = await env.DB.prepare(
-        "SELECT id, buyer_name, contact, type, last5, status, code_id, datetime(created_at,'unixepoch','+8 hours') t FROM orders ORDER BY id DESC LIMIT 100").all();
+        "SELECT id, buyer_name, contact, type, pay_method, last5, pay_ref, status, code_id, datetime(created_at,'unixepoch','+8 hours') t FROM orders ORDER BY id DESC LIMIT 100").all();
       return json(req, { orders: rows.results || [] });
     }
     // 確認收款 → 自動產生密碼並綁定買家
@@ -628,7 +628,39 @@ export default {
       } catch (e) { return json(req, { error: "revoke_failed" }, 500); }
     }
 
-    /* ===== 轉帳下單（2026-10-11 驗證收款制）：買家填末五碼，商家後台確認後發碼 ===== */
+    /* ===== 收款設定（2026-10-11 LINE Pay Money）：公開給買家看的收款資訊 ===== */
+    if (path === "/api/payinfo" && req.method === "GET") {
+      const rows = await env.DB.prepare("SELECT k, v FROM settings").all();
+      const s = {};
+      for (const r of (rows.results || [])) s[r.k] = r.v;
+      return json(req, {
+        bank: { enabled: s.pay_bank_enabled !== "0", account: s.bank_account || "" },
+        linepay: { enabled: s.pay_linepay_enabled === "1", code: s.linepay_code || "", name: s.linepay_name || "" }
+      });
+    }
+    if (path === "/api/admin/settings" && req.method === "GET") {
+      if (req.headers.get("x-admin-key") !== env.ADMIN_KEY) return json(req, { error: "forbidden" }, 403);
+      const rows = await env.DB.prepare("SELECT k, v FROM settings").all();
+      const s = {};
+      for (const r of (rows.results || [])) s[r.k] = r.v;
+      return json(req, { settings: s });
+    }
+    if (path === "/api/admin/settings" && req.method === "POST") {
+      try {
+        const b = await req.json();
+        const allow = ["bank_account", "pay_bank_enabled", "pay_linepay_enabled", "linepay_code", "linepay_name"];
+        const stmts = [];
+        for (const k of allow) {
+          if (b[k] === undefined) continue;
+          stmts.push(env.DB.prepare("INSERT INTO settings(k, v) VALUES(?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v")
+            .bind(k, String(b[k]).slice(0, 120)));
+        }
+        if (stmts.length) await env.DB.batch(stmts);
+        return json(req, { ok: true });
+      } catch (e) { return json(req, { error: "save_failed" }, 500); }
+    }
+
+    /* ===== 轉帳下單（2026-10-11 驗證收款制）：買家填末五碼或 LINE 名稱，商家後台確認後發碼 ===== */
     if (path === "/api/order" && req.method === "POST") {
       try {
         const b = await req.json();
@@ -640,13 +672,16 @@ export default {
         const buyer_name = String(b.buyer_name || "").trim().slice(0, 40);
         const contact = String(b.contact || "").trim().slice(0, 60);
         const type = b.type === "subscription" ? "subscription" : "one_time";
+        const pay_method = b.pay_method === "linepay" ? "linepay" : "bank";
         const last5 = String(b.last5 || "").replace(/\D/g, "").slice(0, 5);
+        const pay_ref = String(b.pay_ref || "").trim().slice(0, 40);
         if (!buyer_name) return json(req, { error: "need_name" }, 400);
         if (!contact) return json(req, { error: "need_contact" }, 400);
-        if (last5.length !== 5) return json(req, { error: "bad_last5" }, 400);
+        if (pay_method === "bank" && last5.length !== 5) return json(req, { error: "bad_last5" }, 400);
+        if (pay_method === "linepay" && !pay_ref) return json(req, { error: "need_pay_ref" }, 400);
         await env.DB.prepare(
-          "INSERT INTO orders(buyer_name, contact, type, last5, status, ip_hash, created_at) VALUES(?, ?, ?, ?, 'pending', ?, ?)")
-          .bind(buyer_name, contact, type, last5, iph, now).run();
+          "INSERT INTO orders(buyer_name, contact, type, pay_method, last5, pay_ref, status, ip_hash, created_at) VALUES(?, ?, ?, ?, ?, ?, 'pending', ?, ?)")
+          .bind(buyer_name, contact, type, pay_method, last5, pay_ref, iph, now).run();
         return json(req, { ok: true });
       } catch (e) { return json(req, { error: "order_failed" }, 500); }
     }

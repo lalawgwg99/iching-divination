@@ -106,14 +106,25 @@ function openRedeem() {
   if (p) { p.classList.add("open"); const i = $("redeemInput"); if (i) i.focus(); }
   else { const t = $("authToggle"); if (t) t.click(); }
 }
-// 商家轉帳帳號（2026-10-11 驗證收款制）：目前是佔位假帳號，等榮德給真帳號再換
-const MERCHANT_BANK = "範例銀行(000)・000-000-000000（假帳號・尚未開通收款）";
+// 收款資訊（2026-10-11 LINE Pay Money）：向後端拿商家設定的收款方式
+let __payinfo = null;
+async function loadPayinfo() {
+  if (__payinfo) return __payinfo;
+  try {
+    const r = await fetch(API_BASE + "/api/payinfo");
+    __payinfo = await r.json();
+  } catch (e) {
+    __payinfo = { bank: { enabled: true, account: "請向商家索取轉帳帳號" }, linepay: { enabled: false } };
+  }
+  return __payinfo;
+}
 let __orderSeq = 0;
+function payMethodLabel(m) { return m === "linepay" ? "LINE Pay Money" : "銀行轉帳"; }
 function plansHTML() {
-  // 2026-10-11 驗證收款制：轉帳下單表單（買家填末五碼，商家後台確認後發碼）
+  // 2026-10-11 驗證收款制：買家選付款方式 → 看收款資訊 → 填驗證資料，商家後台確認後發碼
   const q = "oq" + (++__orderSeq);
-  return `<div class="plans"><div class="hint" style="text-align:center;padding:8px 0;">
-    有密碼的人請點右上「輸入密碼」開通。<br>還沒買？轉帳後填下面表格，商家確認就發開通連結給你。</div>
+  const html = `<div class="plans"><div class="hint" style="text-align:center;padding:8px 0;">
+    有密碼的人請點右上「輸入密碼」開通。<br>還沒買？付款後填下面表格，商家確認就發開通連結給你。</div>
   <div id="${q}-form" style="text-align:left;max-width:420px;margin:0 auto;">
     <label style="display:block;font-size:.85rem;color:var(--ink2);margin:8px 0 4px;">方案</label>
     <select id="${q}-type" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;background:#fff;">
@@ -126,38 +137,83 @@ function plansHTML() {
     <label style="display:block;font-size:.85rem;color:var(--ink2);margin:8px 0 4px;">聯絡方式（LINE ID 或電話，收到開通連結用）</label>
     <input id="${q}-contact" placeholder="例如：0912-345678" maxlength="60" autocomplete="off"
       style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;">
-    <div class="hint" style="margin:10px 0 4px;line-height:1.8;">轉帳帳號：${MERCHANT_BANK}<br>轉帳完成後，填寫帳號末五碼：</div>
-    <input id="${q}-last5" placeholder="5 位數字" maxlength="5" inputmode="numeric" autocomplete="off"
-      style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1.1rem;letter-spacing:.2em;">
+    <label style="display:block;font-size:.85rem;color:var(--ink2);margin:8px 0 4px;">付款方式</label>
+    <div id="${q}-methods" style="display:flex;gap:8px;margin-bottom:4px;"><span class="hint">載入中…</span></div>
+    <div id="${q}-paydetail"></div>
     <button class="btn" style="width:100%;margin-top:12px;padding:12px;letter-spacing:.2em;" onclick="submitOrder('${q}')">送出訂單</button>
     <div id="${q}-msg" class="hint" style="margin-top:8px;min-height:1.2em;color:#b03a2e;"></div>
   </div></div>`;
+  loadPayinfo().then(pi => renderPayMethods(q, pi));
+  return html;
 }
+function renderPayMethods(q, pi) {
+  const box = $(q + "-methods");
+  if (!box) return;
+  const methods = [];
+  if (pi.bank && pi.bank.enabled) methods.push("bank");
+  if (pi.linepay && pi.linepay.enabled) methods.push("linepay");
+  if (!methods.length) {
+    box.innerHTML = `<span class="hint">商家尚未開通線上付款，請直接聯絡商家。</span>`;
+    $(q + "-paydetail").innerHTML = "";
+    return;
+  }
+  box.innerHTML = methods.map((m, i) =>
+    `<label style="flex:1;display:block;text-align:center;padding:10px;border:2px solid ${i === 0 ? "var(--brand)" : "var(--line)"};border-radius:8px;cursor:pointer;font-size:.95rem;" data-m="${m}">
+      <input type="radio" name="${q}-pm" value="${m}" ${i === 0 ? "checked" : ""} style="display:none;">${payMethodLabel(m)}</label>`
+  ).join("");
+  const render = () => {
+    const sel = document.querySelector(`input[name="${q}-pm"]:checked`);
+    const m = sel ? sel.value : methods[0];
+    box.querySelectorAll("label").forEach(l => l.style.borderColor = l.dataset.m === m ? "var(--brand)" : "var(--line)");
+    const det = $(q + "-paydetail");
+    if (m === "bank") {
+      det.innerHTML = `<div class="hint" style="margin:10px 0 4px;line-height:1.8;">轉帳帳號：${escHtml(pi.bank.account)}<br>轉帳完成後，填寫帳號末五碼：</div>
+        <input id="${q}-last5" placeholder="5 位數字" maxlength="5" inputmode="numeric" autocomplete="off"
+          style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1.1rem;letter-spacing:.2em;">`;
+    } else {
+      const code = pi.linepay.code, name = pi.linepay.name;
+      det.innerHTML = `<div class="hint" style="margin:10px 0 4px;line-height:1.8;">`
+        + (code ? `打開 LINE → 錢包 → LINE Pay → 掃描，輸入轉帳代碼：<b style="font-size:1.1rem;letter-spacing:.1em;">${escHtml(code)}</b>` : `請向商家索取 LINE Pay 轉帳代碼`)
+        + (name ? `<br>收款人：${escHtml(name)}` : ``)
+        + `<br>轉帳完成後，填寫你的 LINE 顯示名稱（商家對帳用）：</div>
+        <input id="${q}-payref" placeholder="例如：陳小明" maxlength="40" autocomplete="off"
+          style="width:100%;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;">`;
+    }
+  };
+  box.querySelectorAll(`input[name="${q}-pm"]`).forEach(r => r.addEventListener("change", render));
+  render();
+}
+function escHtml(s) { return String(s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
 async function submitOrder(q) {
   const msg = $(q + "-msg");
   const name = $(q + "-name").value.trim();
   const contact = $(q + "-contact").value.trim();
-  const last5 = $(q + "-last5").value.replace(/\D/g, "");
   const type = $(q + "-type").value;
+  const sel = document.querySelector(`input[name="${q}-pm"]:checked`);
+  const pay_method = sel ? sel.value : "bank";
+  const last5 = pay_method === "bank" ? ($(q + "-last5") ? $(q + "-last5").value.replace(/\D/g, "") : "") : "";
+  const pay_ref = pay_method === "linepay" ? ($(q + "-payref") ? $(q + "-payref").value.trim() : "") : "";
   if (!name) { msg.textContent = "請填你的名字"; return; }
   if (!contact) { msg.textContent = "請填聯絡方式"; return; }
-  if (last5.length !== 5) { msg.textContent = "末五碼要是 5 位數字"; return; }
+  if (pay_method === "bank" && last5.length !== 5) { msg.textContent = "末五碼要是 5 位數字"; return; }
+  if (pay_method === "linepay" && !pay_ref) { msg.textContent = "請填你的 LINE 顯示名稱"; return; }
   msg.style.color = ""; msg.textContent = "送出中…";
   for (let i = 0; i < 3; i++) {
     try {
       const r = await fetch(API_BASE + "/api/order", { method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ buyer_name: name, contact, type, last5 }) });
+        body: JSON.stringify({ buyer_name: name, contact, type, pay_method, last5, pay_ref }) });
       const d = await r.json();
       if (d.ok) {
         $(q + "-form").innerHTML = `<div style="text-align:center;padding:16px 0;line-height:2;">
-          ✅ 訂單已送出！<br><span style="font-size:.9rem;color:var(--ink2);">商家確認收到轉帳後，會把開通連結傳給你。<br>（聯絡方式：${contact.replace(/</g, "&lt;")}）</span></div>`;
+          ✅ 訂單已送出！<br><span style="font-size:.9rem;color:var(--ink2);">商家確認收到款項後，會把開通連結傳給你。<br>（聯絡方式：${escHtml(contact)}）</span></div>`;
         return;
       }
       msg.style.color = "#b03a2e";
       msg.textContent = d.error === "too_many" ? "送出太多次，請 10 分鐘後再試"
         : d.error === "need_name" ? "請填你的名字" : d.error === "need_contact" ? "請填聯絡方式"
-        : d.error === "bad_last5" ? "末五碼要是 5 位數字" : "送出失敗，請再試一次";
+        : d.error === "bad_last5" ? "末五碼要是 5 位數字" : d.error === "need_pay_ref" ? "請填你的 LINE 顯示名稱"
+        : "送出失敗，請再試一次";
       return;
     } catch (e) { if (i < 2) await new Promise(r => setTimeout(r, 1200)); }
   }
