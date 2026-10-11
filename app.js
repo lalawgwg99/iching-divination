@@ -599,7 +599,9 @@ const r = await fetch(API_BASE + "/divine/follow", {
 method: "POST", credentials: "include", headers: { "Content-Type": "application/json" },
 body: JSON.stringify({
 question: cur.question, topic: curTopic,
-benGua: { name: cur.ben.name, n: cur.ben.n }, zhiGua: { name: cur.zhi.name, n: cur.zhi.n },
+benGua: { name: cur.ben.name, n: cur.ben.n, guaci: cur.ben.guaci, baihua: bhOf(cur.ben.name) },
+zhiGua: { name: cur.zhi.name, n: cur.zhi.n, guaci: cur.zhi.guaci, baihua: bhOf(cur.zhi.name) },
+moving: cur.yaos.map((y, i) => y.moving ? { label: y.label, ben: cur.ben.yao[i].text, zhi: cur.zhi.yao[i].text, zhiLabel: cur.zhi.yao[i].label } : null).filter(Boolean),
 prev: cur.ai.jianyi || "", history: followHist, follow: q
 })
 });

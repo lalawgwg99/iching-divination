@@ -18,10 +18,19 @@ const SYS = `你是「易問」的解卦師，精通《周易》經文與象數�
 9. 若使用者訊息中有「問事領域」（求職／感情／創業／考試／人際／抉擇／商戰），在 JSON 中增加 "sanzhi" 物件，每欄 1-2 句，不適用的欄位直接省略，不要硬湊：
    - "ju"（觀局・易經）：必有，一句話點出卦象的大勢。
    - "shi"（取勢・兵法）：領域為商戰／求職／創業／抉擇時才有，取貼合卦象的一兩句兵法（如知己知彼、不戰而屈人之兵、兵貴神速、上下同欲者勝、避實擊虛等），轉化為現代商場或職場競爭的具體打法，務實、不掉書袋。
-   - "xin"（懂心・人心）：領域為人際／感情／抉擇／考試時才有，人性心理視角（如界限感、期望管理、換位思考、損失厭惡、沉沒成本），用白話講，不貼學術標籤。不可做心理診斷或諮商，不可貼病名。`;
+   - "xin"（懂心・人心）：領域為人際／感情／抉擇／考試時才有，人性心理視角（如界限感、期望管理、換位思考、損失厭惡、沉沒成本），用白話講，不貼學術標籤。不可做心理診斷或諮商，不可貼病名。
+10. 【經文鐵律】解卦只能引用本次 user 訊息中以「」標示的經文原文（卦辭／爻辭／白話）。絕對不准杜撰不存在的爻辭；絕對不准把 A 卦的爻辭安到 B 卦；絕對不准編造經文出處，也絕對不准自行「補上」本次沒提供的爻辭。引用爻辭時必須與提供的原文一字不差，不可改字、不可縮寫、不可意譯後假裝是原文。
+11. 【無變爻】當 user 訊息寫「無變爻」時，bianhua 欄位改為描述本卦的靜態格局與當下處境的延續（例如此卦象提示的長期態勢、適合守成的節奏、當下該穩住的重點），不可虛構「正在變化」「即將轉為之卦」之類的情節。`;
 
 // 簡體字偵測（僅簡體寫法才有的字）
 const SIMP_RE = /[龙门见观变发过还请让说认为时来对现点开关无远运进实适这个么与后样]/;
+
+// 卦名-卦序校驗：DAILY_GUA 即 64 卦全表（n↔name），驗證前端傳來的 {n, name} 是否對得上
+const GUA_NAME = {};
+for (const g of DAILY_GUA) GUA_NAME[g.n] = g.name;
+function guaInvalid(g) {
+  return !g || typeof g.n !== "number" || g.n < 1 || g.n > 64 || GUA_NAME[g.n] !== g.name;
+}
 
 function cors(req) {
   const o = req.headers.get("Origin") || "";
@@ -217,6 +226,30 @@ function mulberry32(a) {
   };
 }
 
+async function sendDailyPush(env, testBody) {
+  const tw = new Date(Date.now() + 8 * 3600 * 1000);
+  const seed = tw.getUTCFullYear() * 10000 + (tw.getUTCMonth() + 1) * 100 + tw.getUTCDate();
+  const rnd = mulberry32(seed);
+  const g = DAILY_GUA[Math.floor(rnd() * 64)];
+  const payload = {
+    title: "易問・每日一卦",
+    body: testBody || `今日第${g.n}卦・${g.name}：${g.qs}`,
+    url: "https://yiwen.taicalc.com/",
+  };
+  let sent = 0, gone = 0;
+  const subs = await env.DB.prepare("SELECT endpoint, p256dh, auth FROM push_subs").all();
+  for (const s of (subs.results || [])) {
+    try {
+      const r = await sendPush(env, s, payload);
+      if (r.status === 404 || r.status === 410) {
+        await env.DB.prepare("DELETE FROM push_subs WHERE endpoint = ?").bind(s.endpoint).run();
+        gone++;
+      } else { sent++; }
+    } catch (e) {}
+  }
+  return { sent, gone, total: (subs.results || []).length };
+}
+
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
@@ -391,7 +424,7 @@ export default {
       try {
         const b = await req.json();
         const messages = [
-          { role: "system", content: "你是「易問」的解籤人，精通《周易》爻辭。你用台灣繁體中文、白話但典雅的語氣，針對抽到的爻給 2-4 句籤語短解：先點出這一爻在說什麼處境，再給一句今天可用的提醒。不可鐵口直斷吉凶禍福，不可給醫療、法律、投資買賣點等專業建議。只輸出短解文字，不要 JSON，不要標題。全文一律繁體中文（台灣用法），嚴禁簡體字。" },
+          { role: "system", content: "你是「易問」的解籤人，精通《周易》爻辭。你用台灣繁體中文、白話但典雅的語氣，針對抽到的爻給 2-4 句籤語短解：先點出這一爻在說什麼處境，再給一句今天可用的提醒。引用爻辭時必須與 user 提供的原文一字不差，絕對不准杜撰或改寫爻辭。不可鐵口直斷吉凶禍福，不可給醫療、法律、投資買賣點等專業建議。只輸出短解文字，不要 JSON，不要標題。全文一律繁體中文（台灣用法），嚴禁簡體字。" },
           { role: "user", content: `第${b.guaN}卦${b.guaName}・${b.yaoLabel}：「${b.yaoText}」\n請給籤語短解。` },
         ];
         let txt = await callAI(env, messages);
@@ -412,11 +445,18 @@ export default {
           const q = await consumeQuota(env, uid);
           if (!q.ok) return json(req, { error: "quota_exhausted" }, 402);
         }
+        // 卦名-卦序校驗：對不上就拒絕，不解錯卦
+        if (guaInvalid(b.benGua) || guaInvalid(b.zhiGua)) return json(req, { error: "gua_mismatch" }, 400);
         const hist = (b.history || []).slice(-6).map(h => (h.role === "user" ? "問" : "答") + "：" + h.text).join("\n");
         const topic = b.topic ? `\n問事領域：${b.topic}` : "";
+        // 追問接地：把本次經文原文注入 prompt，模型只能引用這些原文
+        const jw = (g) => `第${g.n}卦 ${g.name}，卦辭「${g.guaci || ""}」，白話「${g.baihua || ""}」`;
+        const mvTxt = (b.moving || []).map(m =>
+          `變爻${m.label}：本卦「${m.ben}」→之卦${m.zhiLabel}「${m.zhi}」`).join("；") || "無變爻";
+        const jingwen = `【本次經文（只能引用以下原文）】\n本卦：${jw(b.benGua)}\n${mvTxt}\n之卦：${jw(b.zhiGua)}`;
         const messages = [
-          { role: "system", content: "你是「易問」的解卦師，精通《周易》。針對使用者的追問，用台灣繁體中文、白話但典雅的語氣回答（2-5句），緊扣原本的卦象與先前的解卦，不要重複整段解卦內容。不可鐵口直斷吉凶禍福，不可給醫療、法律、投資買賣點等專業建議。只輸出回答文字，不要輸出 JSON。全文一律繁體中文（台灣用法），嚴禁簡體字。" },
-          { role: "user", content: `原問事：${b.question}${topic}\n本卦：第${b.benGua.n}卦 ${b.benGua.name}；之卦：第${b.zhiGua.n}卦 ${b.zhiGua.name}\n先前建議：${b.prev || ""}${hist ? "\n先前追問：\n" + hist : ""}\n本次追問：${b.follow}` },
+          { role: "system", content: "你是「易問」的解卦師，精通《周易》。針對使用者的追問，用台灣繁體中文、白話但典雅的語氣回答（2-5句），緊扣原本的卦象與先前的解卦，不要重複整段解卦內容。回答只能引用【本次經文】中提供的經文原文；未提供的爻辭一律不引用、不杜撰、不編造出處；引用爻辭時必須與原文一字不差。不可鐵口直斷吉凶禍福，不可給醫療、法律、投資買賣點等專業建議。只輸出回答文字，不要輸出 JSON。全文一律繁體中文（台灣用法），嚴禁簡體字。" },
+          { role: "user", content: `${jingwen}\n原問事：${b.question}${topic}\n先前建議：${b.prev || ""}${hist ? "\n先前追問：\n" + hist : ""}\n本次追問：${b.follow}` },
         ];
         let txt = await callAI(env, messages);
         if (SIMP_RE.test(txt)) {
@@ -457,6 +497,8 @@ export default {
           const q = await consumeQuota(env, uid);
           if (!q.ok) return json(req, { error: "quota_exhausted" }, 402);
         }
+        // 卦名-卦序校驗：對不上就拒絕，不解錯卦
+        if (guaInvalid(b.benGua) || guaInvalid(b.zhiGua)) return json(req, { error: "gua_mismatch" }, 400);
         const moving = (b.moving || []).map(m =>
           `變爻${m.label}：本卦「${m.ben}」→之卦${m.zhiLabel}「${m.zhi}」`).join("；") || "無變爻";
         const topic = b.topic ? `\n問事領域：${b.topic}（請多從該領域角度切入）` : "";
@@ -530,6 +572,12 @@ export default {
         return json(req, { ok: true });
       } catch (e) { return json(req, { error: "db" }, 500); }
     }
+    if (path === "/api/push/test" && req.method === "GET") {
+      const key = new URL(req.url).searchParams.get("key") || "";
+      if (!env.PUSH_TEST_KEY || key !== env.PUSH_TEST_KEY) return json(req, { error: "forbidden" }, 403);
+      const r = await sendDailyPush(env, "測試推播：如果你看到這則，推播就是通的。");
+      return json(req, { ok: true, ...r });
+    }
     if (path === "/api/push/unsubscribe" && req.method === "POST") {
       try {
         const b = await req.json();
@@ -542,25 +590,6 @@ export default {
   }
   ,
   async scheduled(event, env, ctx) {
-    try {
-      const tw = new Date(Date.now() + 8 * 3600 * 1000);
-      const seed = tw.getUTCFullYear() * 10000 + (tw.getUTCMonth() + 1) * 100 + tw.getUTCDate();
-      const rnd = mulberry32(seed);
-      const g = DAILY_GUA[Math.floor(rnd() * 64)];
-      const payload = {
-        title: "易問・每日一卦",
-        body: `今日第${g.n}卦・${g.name}：${g.qs}`,
-        url: "https://yiwen.taicalc.com/",
-      };
-      const subs = await env.DB.prepare("SELECT endpoint, p256dh, auth FROM push_subs").all();
-      for (const s of (subs.results || [])) {
-        try {
-          const r = await sendPush(env, s, payload);
-          if (r.status === 404 || r.status === 410) {
-            await env.DB.prepare("DELETE FROM push_subs WHERE endpoint = ?").bind(s.endpoint).run();
-          }
-        } catch (e) {}
-      }
-    } catch (e) {}
+    await sendDailyPush(env, null);
   }
 };
