@@ -10,19 +10,27 @@
   h1 { font-size: 1.3rem; margin: 0 0 4px; }
   .sub { color: #8a7f6d; font-size: .85rem; margin-bottom: 20px; }
   .card { background: #fff; border: 1px solid #e5ddcc; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
-  .card h2 { font-size: 1rem; margin: 0 0 12px; }
+  .card h2 { font-size: 1rem; margin: 0 0 4px; }
+  .hint { font-size: .82rem; color: #8a7f6d; margin-bottom: 8px; line-height: 1.6; }
+  .steps { font-size: .85rem; color: #5a5347; background: #f4efe4; border-radius: 8px; padding: 10px 12px; margin: 8px 0 4px; line-height: 1.9; }
+  .steps b { color: #b03a2e; }
   label { display: block; font-size: .85rem; color: #8a7f6d; margin: 10px 0 4px; }
   input, select { width: 100%; padding: 10px; font-size: 1rem; border: 1px solid #e5ddcc; border-radius: 8px; background: #fff; }
+  .row2 { display: flex; gap: 10px; }
+  .row2 > div { flex: 1; }
   button.go { width: 100%; margin-top: 14px; padding: 12px; font-size: 1rem; background: #b03a2e; color: #fff; border: none; border-radius: 8px; letter-spacing: .2em; }
   button.go:active { opacity: .85; }
-  button.mini { padding: 6px 12px; font-size: .85rem; border: 1px solid #e5ddcc; background: #fff; border-radius: 6px; }
+  button.mini { padding: 6px 12px; font-size: .85rem; border: 1px solid #e5ddcc; background: #fff; border-radius: 6px; margin: 2px 2px 2px 0; }
   .code-out { font-family: monospace; font-size: 1.15rem; letter-spacing: .1em; background: #f4efe4; border: 1px dashed #b03a2e; border-radius: 8px; padding: 12px; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .warn { color: #b03a2e; font-size: .85rem; }
   table { width: 100%; border-collapse: collapse; font-size: .85rem; }
-  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eee5d3; }
-  th { color: #8a7f6d; font-weight: normal; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid #eee5d3; vertical-align: top; }
+  th { color: #8a7f6d; font-weight: normal; white-space: nowrap; }
   .revoked { color: #b03a2e; }
   .msg { min-height: 1.4em; font-size: .9rem; color: #b03a2e; margin-top: 8px; }
+  .exp-item { border-left: 3px solid #b03a2e; padding: 8px 10px; margin: 8px 0; background: #fdf9f2; border-radius: 0 8px 8px 0; font-size: .88rem; line-height: 1.7; }
+  .exp-item .d { color: #b03a2e; font-weight: bold; }
+  .ok-line { color: #2e7d32; font-size: .9rem; }
 </style>
 </head>
 <body>
@@ -31,21 +39,37 @@
 
 <div class="card">
   <h2>管理密鑰</h2>
-  <input id="admKey" type="password" placeholder="貼上 ADMIN_KEY（只存這台裝置）" autocomplete="off">
+  <div class="hint">只存在這台裝置的瀏覽器裡，不會傳給別人。換裝置要重新貼一次。</div>
+  <input id="admKey" type="password" placeholder="貼上 ADMIN_KEY" autocomplete="off">
   <div class="msg" id="keyMsg"></div>
 </div>
 
 <div class="card">
+  <h2>到期提醒 <button class="mini" id="expBtn" style="float:right;">重新整理</button></h2>
+  <div class="hint">3 天內到期的月訂會員。到期前用 LINE 提醒客人續訂，客人回購就再發一組新密碼。</div>
+  <div id="expOut"><div class="sub">載入中…</div></div>
+</div>
+
+<div class="card">
   <h2>產生密碼</h2>
+  <div class="steps">
+    <b>1.</b> 客人轉帳（或付現）後，在下面填資料按「產生密碼」<br>
+    <b>2.</b> 按「複製開通連結」，貼給客人（LINE／簡訊）<br>
+    <b>3.</b> 客人點開連結就自動開通，什麼都不用輸
+  </div>
   <label>種類</label>
   <select id="fType">
-    <option value="one_time">單次問事（NT$49／用 1 次即失效）</option>
-    <option value="subscription">月訂（NT$149／30 天無限）</option>
+    <option value="one_time">單次問事（NT$49／客人用 1 次就失效）</option>
+    <option value="subscription">月訂（NT$149／30 天無限問）</option>
   </select>
-  <label>數量（1–100）</label>
+  <div class="row2">
+    <div><label>買家姓名（方便到期提醒）</label><input id="fBuyer" placeholder="例如：陳先生" maxlength="40"></div>
+    <div><label>聯絡方式（LINE ID／電話）</label><input id="fContact" placeholder="例如：0912-345678" maxlength="60"></div>
+  </div>
+  <label>數量（1–100，一次發多組給團購時用）</label>
   <input id="fCount" type="number" value="1" min="1" max="100">
-  <label>備註（例如客人名字後兩字，方便對帳）</label>
-  <input id="fNote" placeholder="例如：陳先生" maxlength="100">
+  <label>備註（自己看的，例如哪個活動）</label>
+  <input id="fNote" placeholder="例如：10月團購" maxlength="100">
   <button class="go" id="genBtn">產生密碼</button>
   <div class="msg" id="genMsg"></div>
   <div id="genOut"></div>
@@ -53,12 +77,14 @@
 
 <div class="card">
   <h2>已發密碼 <button class="mini" id="reloadBtn" style="float:right;">重新整理</button></h2>
+  <div class="hint">「轉贈／改資料」：密碼還沒被用掉之前，可以改買家姓名和聯絡方式（等於轉給別人）。「撤銷」：密碼作廢，已經開通的人也會立刻失效。</div>
   <div id="listOut" style="overflow-x:auto;"><div class="sub">載入中…</div></div>
 </div>
 
 <script>
 const API = "https://yiwen-api.taicalc.com";
 const $ = id => document.getElementById(id);
+const esc = s => String(s || "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const keyEl = $("admKey");
 keyEl.value = localStorage.getItem("yiwen_admin_key") || "";
 keyEl.addEventListener("change", () => {
@@ -71,43 +97,74 @@ async function api(path, method, body) {
     headers: { "Content-Type": "application/json", "X-Admin-Key": akey() },
     body: body ? JSON.stringify(body) : undefined });
   const d = await r.json().catch(() => ({}));
-  if (r.status === 403) throw new Error("密鑰不對");
+  if (r.status === 403) throw new Error("密鑰不對，請重新貼上");
   if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
   return d;
+}
+function fmtDate(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts * 1000);
+  return (d.getMonth() + 1) + "/" + d.getDate();
 }
 $("genBtn").onclick = async () => {
   if (!akey()) { $("genMsg").textContent = "先填管理密鑰"; return; }
   $("genMsg").textContent = "產生中…"; $("genOut").innerHTML = "";
   try {
     const d = await api("/api/admin/codes", "POST", {
-      type: $("fType").value, count: $("fCount").value, note: $("fNote").value });
+      type: $("fType").value, count: $("fCount").value, note: $("fNote").value,
+      buyer_name: $("fBuyer").value, contact: $("fContact").value });
     $("genMsg").textContent = "";
     const linkFor = c => "https://yiwen.taicalc.com/?code=" + encodeURIComponent(c);
     $("genOut").innerHTML = `<div class="warn">⚠ ${d.warning}</div>` + d.codes.map(c =>
-      `<div class="code-out"><span>${c}</span><button class="mini" onclick="navigator.clipboard.writeText('${c}').then(()=>this.textContent='已複製')">複製</button></div>
-       <div style="margin:-4px 0 10px;"><button class="mini" onclick="navigator.clipboard.writeText('${linkFor(c)}').then(()=>this.textContent='已複製連結')">複製開通連結（客人點開自動開通）</button></div>`).join("");
+      `<div class="code-out"><span>${c}</span><button class="mini" onclick="navigator.clipboard.writeText('${c}').then(()=>this.textContent='已複製')">複製密碼</button></div>
+       <div style="margin:-4px 0 10px;"><button class="mini" onclick="navigator.clipboard.writeText('${linkFor(c)}').then(()=>this.textContent='已複製連結')">複製開通連結（客人點開自動開通）</button></div>`).join("") +
+      `<div class="ok-line">✅ 已產生 ${d.codes.length} 組，記得把連結傳給客人</div>`;
+    $("fBuyer").value = ""; $("fContact").value = ""; $("fNote").value = "";
     loadList();
   } catch (e) { $("genMsg").textContent = e.message; }
 };
+async function loadExp() {
+  if (!akey()) { $("expOut").innerHTML = `<div class="sub">先填管理密鑰</div>`; return; }
+  try {
+    const d = await api("/api/admin/expiring", "GET");
+    if (!d.expiring.length) { $("expOut").innerHTML = `<div class="ok-line">✅ 近 3 天沒有人到期</div>`; return; }
+    $("expOut").innerHTML = d.expiring.map(e =>
+      `<div class="exp-item"><span class="d">${fmtDate(e.expires_at)} 到期</span>・${esc(e.buyer_name) || "（未填姓名）"}・${esc(e.contact) || "（未填聯絡方式）"}<br><span style="color:#8a7f6d">密碼 ${esc(e.code_prefix)}•• ${esc(e.note) ? "・" + esc(e.note) : ""}</span></div>`).join("");
+  } catch (e) { $("expOut").innerHTML = `<div class="sub">${esc(e.message)}</div>`; }
+}
 async function loadList() {
   if (!akey()) { $("listOut").innerHTML = `<div class="sub">先填管理密鑰</div>`; return; }
   try {
     const d = await api("/api/admin/codes", "GET");
     if (!d.codes.length) { $("listOut").innerHTML = `<div class="sub">還沒發過密碼</div>`; return; }
-    $("listOut").innerHTML = `<table><tr><th>前碼</th><th>種類</th><th>狀態</th><th>已用</th><th>備註</th><th></th></tr>` +
-      d.codes.map(c => `<tr><td style="font-family:monospace">${c.code_prefix}••</td><td>${c.type === "subscription" ? "月訂" : "單次"}</td>` +
+    $("listOut").innerHTML = `<table><tr><th>前碼</th><th>種類</th><th>狀態</th><th>已用</th><th>買家</th><th></th></tr>` +
+      d.codes.map(c => `<tr><td style="font-family:monospace">${esc(c.code_prefix)}••</td><td>${c.type === "subscription" ? "月訂" : "單次"}</td>` +
         `<td class="${c.status !== "active" ? "revoked" : ""}">${c.status === "active" ? "有效" : "已撤銷"}</td>` +
-        `<td>${c.used_count}/${c.max_uses}</td><td>${c.note || ""}</td>` +
-        (c.status === "active" ? `<td><button class="mini" onclick="revoke(${c.id})">撤銷</button></td>` : `<td></td>`) + `</tr>`).join("") + `</table>`;
-  } catch (e) { $("listOut").innerHTML = `<div class="sub">${e.message}</div>`; }
+        `<td>${c.used_count}/${c.max_uses}</td><td>${esc(c.buyer_name) || ""}${c.contact ? "<br>" + esc(c.contact) : ""}${c.note ? "<br><span style='color:#8a7f6d'>" + esc(c.note) + "</span>" : ""}</td>` +
+        (c.status === "active"
+          ? `<td style="white-space:nowrap"><button class="mini" onclick="revoke(${c.id})">撤銷</button>` +
+            (c.used_count === 0 ? `<button class="mini" onclick="reassign(${c.id}, '${esc(c.buyer_name)}', '${esc(c.contact)}', '${esc(c.note)}')">轉贈／改資料</button>` : "") + `</td>`
+          : `<td></td>`) + `</tr>`).join("") + `</table>`;
+  } catch (e) { $("listOut").innerHTML = `<div class="sub">${esc(e.message)}</div>`; }
 }
 async function revoke(id) {
-  if (!confirm("確定撤銷這組密碼？已開通的憑證也會失效。")) return;
-  try { await api("/api/admin/codes/revoke", "POST", { id }); loadList(); }
+  if (!confirm("確定撤銷這組密碼？\n已經開通的人也會立刻失效。")) return;
+  try { await api("/api/admin/codes/revoke", "POST", { id }); loadList(); loadExp(); }
+  catch (e) { alert(e.message); }
+}
+async function reassign(id, buyer, contact, note) {
+  const b = prompt("買家姓名（轉贈給誰）", buyer || "");
+  if (b === null) return;
+  const ct = prompt("聯絡方式（LINE ID／電話）", contact || "");
+  if (ct === null) return;
+  const nt = prompt("備註", note || "");
+  if (nt === null) return;
+  try { await api("/api/admin/codes/update", "POST", { id, buyer_name: b, contact: ct, note: nt }); loadList(); }
   catch (e) { alert(e.message); }
 }
 $("reloadBtn").onclick = loadList;
-if (akey()) loadList();
+$("expBtn").onclick = loadExp;
+if (akey()) { loadList(); loadExp(); }
 </script>
 </body>
 </html>

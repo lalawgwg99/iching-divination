@@ -517,7 +517,7 @@ export default {
     }
 
     /* ===== 發碼後台（x-admin-key，2026-10-11 Phase 0） ===== */
-    const needAdmin = (path === "/api/admin/codes" || path === "/api/admin/codes/revoke") && req.method === "POST";
+    const needAdmin = (path === "/api/admin/codes" || path === "/api/admin/codes/revoke" || path === "/api/admin/codes/update") && req.method === "POST";
     if (needAdmin && req.headers.get("x-admin-key") !== env.ADMIN_KEY) {
       return json(req, { error: "forbidden" }, 403);
     }
@@ -528,6 +528,8 @@ export default {
         const count = Math.min(Math.max(parseInt(b.count) || 1, 1), 100);
         const days = parseInt(b.days) || 0;
         const note = String(b.note || "").slice(0, 100);
+        const buyer_name = String(b.buyer_name || "").slice(0, 40);
+        const contact = String(b.contact || "").slice(0, 60);
         const now = Math.floor(Date.now() / 1000);
         const out = [];
         const stmts = [];
@@ -536,8 +538,8 @@ export default {
           const h = await sha256hex(normalizeCode(c));
           out.push(c);
           stmts.push(env.DB.prepare(
-            "INSERT INTO codes(code_hash, code_prefix, type, expires_at, max_uses, note, created_at) VALUES(?, ?, ?, ?, 1, ?, ?)")
-            .bind(h, c.slice(0, 4), type, days ? now + days * 86400 : 0, note, now));
+            "INSERT INTO codes(code_hash, code_prefix, type, expires_at, max_uses, note, buyer_name, contact, created_at) VALUES(?, ?, ?, ?, 1, ?, ?, ?, ?)")
+            .bind(h, c.slice(0, 4), type, days ? now + days * 86400 : 0, note, buyer_name, contact, now));
         }
         await env.DB.batch(stmts);
         return json(req, { ok: true, type, codes: out, warning: "明碼只顯示一次，請立即複製保存" });
@@ -546,8 +548,31 @@ export default {
     if (path === "/api/admin/codes" && req.method === "GET") {
       if (req.headers.get("x-admin-key") !== env.ADMIN_KEY) return json(req, { error: "forbidden" }, 403);
       const rows = await env.DB.prepare(
-        "SELECT id, code_prefix, type, status, expires_at, max_uses, used_count, note, created_at FROM codes ORDER BY id DESC LIMIT 200").all();
+        "SELECT id, code_prefix, type, status, expires_at, max_uses, used_count, note, buyer_name, contact, created_at FROM codes ORDER BY id DESC LIMIT 200").all();
       return json(req, { codes: rows.results || [] });
+    }
+    // 更新買家資料（轉贈／補登）：只改未兌換過的密碼
+    if (path === "/api/admin/codes/update" && req.method === "POST") {
+      try {
+        const b = await req.json();
+        const id = parseInt(b.id) || 0;
+        if (!id) return json(req, { error: "not_found" }, 404);
+        const buyer_name = String(b.buyer_name || "").slice(0, 40);
+        const contact = String(b.contact || "").slice(0, 60);
+        const note = String(b.note || "").slice(0, 100);
+        await env.DB.prepare("UPDATE codes SET buyer_name = ?, contact = ?, note = ? WHERE id = ? AND used_count = 0")
+          .bind(buyer_name, contact, note, id).run();
+        return json(req, { ok: true });
+      } catch (e) { return json(req, { error: "update_failed" }, 500); }
+    }
+    // 即將到期清單：3 天內到期的月訂憑證（附買家資料，方便商家提醒續訂）
+    if (path === "/api/admin/expiring" && req.method === "GET") {
+      if (req.headers.get("x-admin-key") !== env.ADMIN_KEY) return json(req, { error: "forbidden" }, 403);
+      const now = Math.floor(Date.now() / 1000);
+      const rows = await env.DB.prepare(
+        "SELECT c.code_prefix, c.buyer_name, c.contact, c.note, cr.expires_at FROM credentials cr JOIN codes c ON c.id = cr.code_id WHERE cr.type = 'subscription' AND cr.revoked = 0 AND cr.expires_at > 0 AND cr.expires_at < ? ORDER BY cr.expires_at ASC LIMIT 100")
+        .bind(now + 3 * 86400).all();
+      return json(req, { expiring: rows.results || [] });
     }
     if (path === "/api/admin/codes/revoke" && req.method === "POST") {
       try {

@@ -28,7 +28,12 @@ function renderAuth() {
     box.innerHTML = `<div class="auth-menu">
       <button class="auth-btn" id="authToggle">輸入密碼</button>
       <div class="auth-panel" id="authPanel">
-        <div class="hint">有購買密碼的人，在這裡輸入開通。<br>沒密碼也能每月免費問 3 次。</div>
+        <div class="hint" style="line-height:1.9;text-align:left;">
+          <b>什麼是密碼？</b>跟商家購買後，會收到一組 12 碼密碼（或一條開通連結，點開就自動開通，不用手輸）。<br>
+          <b>單次密碼</b>：可請 AI 解卦 1 次，用完就失效。<br>
+          <b>月訂密碼</b>：30 天內無限次解卦。<br>
+          <span style="color:var(--ink2);">沒密碼也沒關係，每月有 3 次免費解卦。</span>
+        </div>
         <div style="display:flex;gap:8px;margin-top:10px;">
           <input id="redeemInput" placeholder="XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false"
             style="flex:1;min-width:0;padding:10px;border:1px solid var(--line);border-radius:8px;font-size:1rem;letter-spacing:.08em;">
