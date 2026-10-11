@@ -170,7 +170,7 @@ textarea::placeholder{font-size:.88rem; color:#a09a89; line-height:30px;}
 .cq-btns{display:flex; gap:10px; margin-top:6px;}
 .cq-btns .btn{flex:1;}
 /* 底部分類導航 */
-.wrap{padding-bottom:96px;}
+.wrap{padding-bottom:calc(128px + env(safe-area-inset-bottom));}
 #tabbar{position:fixed; left:0; right:0; bottom:0; width:100%; z-index:50;
   display:flex; background:var(--paper); border-top:1px solid var(--line);
   padding:6px 4px calc(6px + env(safe-area-inset-bottom));
